@@ -1,0 +1,81 @@
+body {
+    background-image: url("images/White_Abstract_5241852.jpg");
+    color: antiquewhite;
+    background-color: white;  
+    background-position: center;
+    font-family: 'Segoe UI', Tahoma, Verdana, sans-serif;
+    line-height: 1.4em;
+	margin: 0px;
+}
+.container{
+    background-color: white;
+    background-image: url("images/White_Abstract_5241852.jpg");
+    background-position: center;
+    width: 1280px;
+    height: auto;
+	margin: 20px auto 20px auto;
+	border: 1px solid black;
+    background-color: #ffffff;
+}
+/*
+navigation start
+*/
+
+nav ul {
+    background-color: wheat;
+    text-align: center;
+    margin: 0px;
+    padding: 5px 0px 5px 30px;
+}
+
+nav li {
+    display: inline;
+    margin-left: 40px;
+    
+}
+nav li a{
+    color: black;
+    text-decoration: none;
+    
+}
+nav li a:hover {
+    color: gray;
+}
+
+
+/*
+navigation end
+*/
+/*
+content start
+*/
+.courses{
+    background-image: url("images/indomie_ayam_krispi_RV9.jpg");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    position: relative;
+    height: auto;
+    padding: 20px 0;    
+}
+.courses .center{
+    background:rgba(0,0,0,0.6);
+    width: auto;
+    height:auto;
+    text-align: center;
+    position: absolute;
+    top: 50%;
+    left:50%;
+    transform: translate(-50%, -50%);
+    color: wheat;
+    font-size: 40px;
+}
+/*
+content send
+*/
+footer {
+    color:black;
+    padding: 2px 2px 2px 2px;
+    border-top:1px solid black;
+    background-color: wheat;
+}
