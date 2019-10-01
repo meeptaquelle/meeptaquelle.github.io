@@ -56,7 +56,14 @@ content start
     background-size: cover;
     position: relative;
     height: auto;
-    padding: 20px 0;    
+    padding: 20px 0;  
+    border:2px solid grey;
+    transition: 0.3s ease all;
+    margin: 0;  
+}
+.courses:hover{
+    box-shadow: 0 30px 30px 0 #000;
+    margin-top:-5px;
 }
 .courses .center{
     background:rgba(0,0,0,0.6);
@@ -68,7 +75,16 @@ content start
     left:50%;
     transform: translate(-50%, -50%);
     color: wheat;
-    font-size: 40px;
+    font-size: 200%;
+    padding: 4px 4px 4px 4px;
+    letter-spacing: 2px;
+    line-height: 2 em;
+}
+br{
+    display: block;
+    margin-bottom: 2px;
+    
+    line-height: 2px;
 }
 /*
 content send
@@ -79,3 +95,4 @@ footer {
     border-top:1px solid black;
     background-color: wheat;
 }
+
