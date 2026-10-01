@@ -115,32 +115,42 @@ onMounted(() => {
     </form>
   </section>
 </template>
-
 <style scoped>
 .message-widget {
   width: 100%;
-  max-width: 700px;
-  padding: 24px;
+  max-width: none;
+  min-width: 0;
+  max-height: 500px;
+  overflow: scroll;
+  scrollbar-width: thin;
+  scrollbar-color: #444 transparent;
+
+  box-sizing: border-box;
+  padding: 16px;
   border: 1px solid #2a2a2a;
   border-radius: 16px;
   background: #111;
   color: #fff;
-  box-sizing: border-box;
 }
-
 .message-widget h2 {
-  margin: 0 0 20px;
-  font-size: 20px;
+  margin: 0 0 16px;
+  font-size: 18px;
   font-weight: 600;
 }
 
 .messages {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  max-height: 500px;
+  gap: 12px;
+
+  height: 200px;
   overflow-y: auto;
-  margin-bottom: 24px;
+
+  margin-bottom: 20px;
+  padding-right: 4px;
+
+  scrollbar-width: thin;
+  scrollbar-color: #444 transparent;
 }
 
 .message {
@@ -148,32 +158,32 @@ onMounted(() => {
 }
 
 .message-name {
-  margin-bottom: 5px;
+  margin-bottom: 4px;
   color: #aaa;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .message-content {
   width: fit-content;
   max-width: 100%;
-  padding: 10px 14px;
+  padding: 9px 12px;
   border-radius: 10px;
   background: #1c1c1c;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.4;
   overflow-wrap: break-word;
 }
 
 .message-form {
-  padding-top: 20px;
+  padding-top: 16px;
   border-top: 1px solid #2a2a2a;
 }
 
 .message-form label {
   display: block;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   color: #aaa;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .message-form input,
@@ -181,7 +191,7 @@ onMounted(() => {
   display: block;
   width: 100%;
   margin-top: 6px;
-  padding: 10px 12px;
+  padding: 9px 10px;
   border: 1px solid #2a2a2a;
   border-radius: 8px;
   background: #181818;
@@ -202,7 +212,7 @@ onMounted(() => {
 
 .message-form button {
   width: 100%;
-  padding: 10px;
+  padding: 9px;
   border: 0;
   border-radius: 8px;
   background: #fff;

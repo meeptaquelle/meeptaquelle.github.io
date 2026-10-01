@@ -71,37 +71,47 @@ onMounted(() => {
     </a>
   </section>
 </template>
-
 <style scoped>
 .spotify-widget {
   width: 100%;
-  max-width: 700px;
+  max-width: none;
+  min-width: 0;
+  max-height: 500px;
+  overflow-y: auto;
+
   box-sizing: border-box;
-  padding: 24px;
+  padding: 16px;
   border: 1px solid #2a2a2a;
   border-radius: 16px;
   background: #111;
   color: #fff;
+  scrollbar-width: thin;
+  scrollbar-color: #444 transparent;
 }
 
 .spotify-widget h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
 }
 
 .period {
-  margin: 4px 0 20px;
+  margin: 4px 0 14px;
   color: #888;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .track {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 10px 0;
+  gap: 10px;
+  min-width: 0;
+  padding: 9px 0;
   border-top: 1px solid #222;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
 }
 
 .track:first-of-type {
@@ -109,49 +119,42 @@ onMounted(() => {
 }
 
 .rank {
-  width: 20px;
+  width: 16px;
+  flex-shrink: 0;
   color: #777;
-  font-size: 14px;
+  font-size: 12px;
   text-align: center;
 }
 
 .track img {
-  width: 52px;
-  height: 52px;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
   border-radius: 6px;
   object-fit: cover;
-  flex-shrink: 0;
 }
 
 .track-name {
-  font-size: 15px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
   font-weight: 500;
   line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .artist {
-  margin-top: 4px;
+  min-width: 0;
+  margin-top: 3px;
+  overflow: hidden;
   color: #888;
-  font-size: 13px;
-}
-
-.track {
-  cursor: pointer;
-  transition: background 0.15s ease;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .track:hover {
   background: #1a1a1a;
-}
-
-.track-name,
-.artist {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.track {
-  color: inherit;
-  text-decoration: none;
 }
 </style>
