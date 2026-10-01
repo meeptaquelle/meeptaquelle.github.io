@@ -77,25 +77,14 @@ const heatmapWeeks = computed<HeatmapDay[][]>(() => {
     ...days,
   ]
 
-  const remainder = paddedDays.length % 7
-
-  if (remainder !== 0) {
-    const paddingCount = 7 - remainder
-
-    paddedDays.push(
-      ...Array.from({ length: paddingCount }, (_, index) => ({
-        date: `empty-end-${index}`,
-        count: 0,
-        level: 0,
-        empty: true,
-      })),
-    )
-  }
+  // Only keep enough data for 52 complete weeks.
+  const maxDays = 52 * 7
+  const trimmedDays = paddedDays.slice(-maxDays)
 
   const weeks: HeatmapDay[][] = []
 
-  for (let i = 0; i < paddedDays.length; i += 7) {
-    weeks.push(paddedDays.slice(i, i + 7))
+  for (let i = 0; i < trimmedDays.length; i += 7) {
+    weeks.push(trimmedDays.slice(i, i + 7))
   }
 
   return weeks
@@ -242,13 +231,19 @@ onMounted(() => {
 <style scoped>
 .github-widget {
   width: 100%;
-  max-width: 700px;
-  padding: 24px;
+  max-width: none;
+  min-width: 0;
+  max-height: 500px;
+  overflow-y: auto;
+
+  box-sizing: border-box;
+  padding: 16px;
   border: 1px solid #2a2a2a;
   border-radius: 16px;
   background: #111;
   color: #fff;
-  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: #444 transparent;
 }
 
 .github-widget h2 {
@@ -372,25 +367,25 @@ onMounted(() => {
   font-weight: 500;
   text-transform: uppercase;
 }
-
 .contribution-grid {
-  display: flex;
-  gap: 3px;
-  overflow-x: auto;
-  padding-bottom: 4px;
+  display: grid;
+  grid-template-columns: repeat(52, minmax(0, 1fr));
+  gap: 2px;
+  width: 100%;
+  overflow: hidden;
 }
 
 .contribution-week {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  flex-shrink: 0;
+  display: grid;
+  grid-template-rows: repeat(7, 1fr);
+  gap: 2px;
+  min-width: 0;
 }
 
 .contribution-day {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 1px;
   background: #1d1d1d;
 }
 

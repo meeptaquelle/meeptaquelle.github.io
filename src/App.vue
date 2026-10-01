@@ -2,6 +2,7 @@
 import SpotifyWidget from './components/SpotifyWidget.vue'
 import GithubWidget from './components/GithubWidget.vue'
 import MessageWidget from './components/MessageWidget.vue'
+import SpotifyArtistWidget from './components/SpotifyArtistWidget.vue'
 </script>
 
 <template>
@@ -10,7 +11,7 @@ import MessageWidget from './components/MessageWidget.vue'
 
     <div class="widget-grid">
       <SpotifyWidget />
-      <MessageWidget />
+      <SpotifyArtistWidget />
       <GithubWidget />
       <MessageWidget />
 
@@ -22,22 +23,18 @@ import MessageWidget from './components/MessageWidget.vue'
 </template>
 
 <style>
-.page {
-  width: min(1300px, 100%);
-  margin: 0 auto;
-  padding: 40px 24px;
-  box-sizing: border-box;
-}
-
-.page h1 {
-  margin: 0 0 24px;
-}
-
 .widget-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
 }
+
+@media (max-width: 1200px) {
+  .widget-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 700px) {
   .widget-grid {
     grid-template-columns: 1fr;
