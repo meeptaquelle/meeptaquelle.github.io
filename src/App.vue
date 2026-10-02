@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import type { Component } from 'vue'
+import {
+  FeGithub,
+  FeMusic,
+  FeUsers,
+  FeBriefcase,
+  FeMessageSquare,
+  FeCode,
+  FeUser,
+} from '@kalimahapps/vue-icons/fe'
 
 import WidgetWindow from './components/WidgetWindow.vue'
 
@@ -13,56 +22,56 @@ interface WidgetNode {
   id: string
   label: string
   description: string
-  icon: string
+  icon: Component
   component: Component | null
 }
-
 const layers: WidgetNode[][] = [
   [
     {
       id: 'github',
       label: 'GitHub',
       description: 'My code and projects',
-      icon: '⌘',
+      icon: FeGithub,
       component: GithubWidget,
     },
+    {
+      id: 'projects',
+      label: 'Projects',
+      description: 'Things I have built',
+      icon: FeBriefcase,
+      component: null,
+    },
+    {
+      id: 'stack',
+      label: 'Stack',
+      description: 'Tools I work with',
+      icon: FeCode,
+      component: null,
+    },
+  ],
+
+  [
+    {
+      id: 'messages',
+      label: 'Messages',
+      description: 'Leave me a message',
+      icon: FeMessageSquare,
+      component: MessageWidget,
+    },
+
     {
       id: 'tracks',
       label: 'Top Tracks',
       description: 'What I listen to',
-      icon: '♫',
+      icon: FeMusic,
       component: SpotifyWidget,
     },
     {
       id: 'artists',
       label: 'Top Artists',
       description: 'Artists on repeat',
-      icon: '◉',
+      icon: FeUsers,
       component: SpotifyArtistWidget,
-    },
-  ],
-
-  [
-    {
-      id: 'projects',
-      label: 'Projects',
-      description: 'Things I have built',
-      icon: '◇',
-      component: null,
-    },
-    {
-      id: 'messages',
-      label: 'Messages',
-      description: 'Leave me a message',
-      icon: '□',
-      component: MessageWidget,
-    },
-    {
-      id: 'stack',
-      label: 'Stack',
-      description: 'Tools I work with',
-      icon: '△',
-      component: null,
     },
   ],
 ]
@@ -192,8 +201,7 @@ function moveCameraTo(targetX: number, targetY: number) {
 | Dragging
 |--------------------------------------------------------------------------
 */
-
-function startDrag(event: MouseEvent) {
+function startDrag(event: PointerEvent) {
   stopCameraAnimation()
 
   isDragging.value = true
@@ -203,9 +211,11 @@ function startDrag(event: MouseEvent) {
 
   startCameraX = camera.x
   startCameraY = camera.y
+
+  ;(event.currentTarget as HTMLElement)?.setPointerCapture(event.pointerId)
 }
 
-function drag(event: MouseEvent) {
+function drag(event: PointerEvent) {
   if (!isDragging.value) {
     return
   }
@@ -214,12 +224,15 @@ function drag(event: MouseEvent) {
   const dy = event.clientY - startY
 
   camera.x = startCameraX + dx
-
   camera.y = startCameraY + dy
 }
 
-function endDrag() {
+function endDrag(event?: PointerEvent) {
   isDragging.value = false
+
+  if (event && (event.currentTarget as HTMLElement)?.hasPointerCapture(event.pointerId)) {
+    ;(event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId)
+  }
 }
 
 /*
@@ -331,10 +344,11 @@ function navigateToWidget(id: string) {
     :class="{
       dragging: isDragging,
     }"
-    @mousedown="startDrag"
-    @mousemove="drag"
-    @mouseup="endDrag"
-    @mouseleave="endDrag"
+    @pointerdown="startDrag"
+    @pointermove="drag"
+    @pointerup="endDrag"
+    @pointercancel="endDrag"
+    @pointerleave="endDrag"
     @click="closeWindow"
   >
     <!--
@@ -342,7 +356,7 @@ function navigateToWidget(id: string) {
       This stays attached to the viewport,
       not the moving world.
     -->
-    <nav class="floating-nav" @mousedown.stop @click.stop>
+    <nav class="floating-nav" @pointerdown.stop @click.stop>
       <button type="button" class="nav-item" @click="navigateToWidget('meep')">Meep</button>
 
       <button type="button" class="nav-item" @click="navigateToWidget('github')">GitHub</button>
@@ -398,11 +412,11 @@ function navigateToWidget(id: string) {
             active: activeWindow === node.id,
           }"
           :style="nodePosition(layerIndex, nodeIndex)"
-          @mousedown.stop
+          @pointerdown.stop
           @click.stop="openWindow(node.id)"
         >
           <div class="node-icon">
-            {{ node.icon }}
+            <component :is="node.icon" />
           </div>
 
           <strong class="node-title">
@@ -424,12 +438,16 @@ function navigateToWidget(id: string) {
         :class="{
           active: activeWindow === 'meep',
         }"
-        @mousedown.stop
+        @pointerdown.stop
         @click.stop="openWindow('meep')"
       >
+        <div class="node-icon">
+          <FeUser />
+        </div>
+
         <strong>Meep</strong>
 
-        <span> Introduction </span>
+        <span>Introduction</span>
       </button>
     </div>
 
@@ -461,6 +479,7 @@ function navigateToWidget(id: string) {
   cursor: grab;
 
   user-select: none;
+  touch-action: none;
 }
 
 .canvas-viewport.dragging {
@@ -645,21 +664,22 @@ function navigateToWidget(id: string) {
   height: 48px;
 
   display: flex;
-
   align-items: center;
   justify-content: center;
 
   margin-bottom: 4px;
 
   border: 1px solid #2a2a2a;
-
   border-radius: 12px;
 
   background: #181818;
-
   color: #aaa;
+}
 
-  font-size: 22px;
+.node-icon :deep(svg) {
+  width: 21px;
+  height: 21px;
+  stroke-width: 1.5;
 }
 
 /*

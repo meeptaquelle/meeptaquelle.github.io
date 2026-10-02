@@ -15,7 +15,9 @@
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
-    "vue": "^3.5.42"
+    "@kalimahapps/vue-icons": "^1.9.7",
+    "vue": "^3.5.42",
+    "vue-icons": "^2.0.0"
   },
   "devDependencies": {
     "@tsconfig/node24": "^24.0.5",
