@@ -233,8 +233,6 @@ onMounted(() => {
   width: 100%;
   max-width: none;
   min-width: 0;
-  max-height: 500px;
-  overflow-y: auto;
 
   box-sizing: border-box;
   padding: 16px;
