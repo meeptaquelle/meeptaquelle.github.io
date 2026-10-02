@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import type { Component } from 'vue'
+
 import {
   FeGithub,
   FeMusic,
@@ -12,11 +13,11 @@ import {
 } from '@kalimahapps/vue-icons/fe'
 
 import WidgetWindow from './components/WidgetWindow.vue'
-
 import GithubWidget from './components/GithubWidget.vue'
 import SpotifyWidget from './components/SpotifyWidget.vue'
 import SpotifyArtistWidget from './components/SpotifyArtistWidget.vue'
 import MessageWidget from './components/MessageWidget.vue'
+import ProfileWidget from './components/ProfileWidget.vue'
 
 interface WidgetNode {
   id: string
@@ -25,6 +26,7 @@ interface WidgetNode {
   icon: Component
   component: Component | null
 }
+
 const layers: WidgetNode[][] = [
   [
     {
@@ -58,7 +60,6 @@ const layers: WidgetNode[][] = [
       icon: FeMessageSquare,
       component: MessageWidget,
     },
-
     {
       id: 'tracks',
       label: 'Top Tracks',
@@ -75,23 +76,29 @@ const layers: WidgetNode[][] = [
     },
   ],
 ]
-
+const centerNode: WidgetNode = {
+  id: 'meep',
+  label: 'Profile',
+  description: 'About me',
+  icon: FeUser,
+  component: ProfileWidget,
+}
 const camera = reactive({
   x: 0,
   y: 0,
 })
 
 const activeWindow = ref<string | null>(null)
-
 const isDragging = ref(false)
 
 let startX = 0
 let startY = 0
-
 let startCameraX = 0
 let startCameraY = 0
 
 let cameraAnimation: number | null = null
+let orbitAnimation: number | null = null
+let orbitStartTime = 0
 
 /*
 |--------------------------------------------------------------------------
@@ -104,8 +111,8 @@ const activeNode = computed(() => {
     return null
   }
 
-  if (activeWindow.value === 'meep') {
-    return null
+  if (activeWindow.value === centerNode.id) {
+    return centerNode
   }
 
   for (const layer of layers) {
@@ -122,14 +129,7 @@ const activeNode = computed(() => {
 const activeWidget = computed(() => {
   return activeNode.value?.component ?? null
 })
-
-const windowTitle = computed(() => {
-  if (activeWindow.value === 'meep') {
-    return 'Introduction'
-  }
-
-  return activeNode.value?.label ?? ''
-})
+const windowTitle = computed(() => activeNode.value?.label ?? '')
 
 /*
 |--------------------------------------------------------------------------
@@ -143,6 +143,16 @@ function openWindow(id: string) {
 
 function closeWindow() {
   activeWindow.value = null
+}
+
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    closeWindow()
+  }
+
+  if (event.key === 'Home' || event.key.toLowerCase() === 'h') {
+    navigateToWidget('meep')
+  }
 }
 
 /*
@@ -163,14 +173,11 @@ function moveCameraTo(targetX: number, targetY: number) {
 
   const startX = camera.x
   const startY = camera.y
-
   const startTime = performance.now()
-
   const duration = 750
 
   function animate(currentTime: number) {
     const elapsed = currentTime - startTime
-
     const progress = Math.min(elapsed / duration, 1)
 
     /*
@@ -183,7 +190,6 @@ function moveCameraTo(targetX: number, targetY: number) {
     const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2
 
     camera.x = startX + (targetX - startX) * eased
-
     camera.y = startY + (targetY - startY) * eased
 
     if (progress < 1) {
@@ -201,6 +207,7 @@ function moveCameraTo(targetX: number, targetY: number) {
 | Dragging
 |--------------------------------------------------------------------------
 */
+
 function startDrag(event: PointerEvent) {
   stopCameraAnimation()
 
@@ -212,7 +219,11 @@ function startDrag(event: PointerEvent) {
   startCameraX = camera.x
   startCameraY = camera.y
 
-  ;(event.currentTarget as HTMLElement)?.setPointerCapture(event.pointerId)
+  const target = event.currentTarget as HTMLElement | null
+
+  if (target) {
+    target.setPointerCapture(event.pointerId)
+  }
 }
 
 function drag(event: PointerEvent) {
@@ -230,8 +241,14 @@ function drag(event: PointerEvent) {
 function endDrag(event?: PointerEvent) {
   isDragging.value = false
 
-  if (event && (event.currentTarget as HTMLElement)?.hasPointerCapture(event.pointerId)) {
-    ;(event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId)
+  if (!event) {
+    return
+  }
+
+  const target = event.currentTarget as HTMLElement | null
+
+  if (target?.hasPointerCapture(event.pointerId)) {
+    target.releasePointerCapture(event.pointerId)
   }
 }
 
@@ -249,38 +266,76 @@ function layerRadius(layerIndex: number) {
 }
 
 /*
- * Returns the actual world-space position
- * of a node.
+ * Each layer rotates very slowly around Meep.
  *
- * Meep is always at:
+ * Layer 0:
+ * 60 seconds per revolution
  *
- * x: 0
- * y: 0
+ * Layer 1:
+ * 90 seconds per revolution
+ *
+ * Layer 2:
+ * 120 seconds per revolution
+ *
+ * Alternating direction keeps the layers from
+ * feeling like a single rigid wheel.
  */
+function layerOrbitRotation(layerIndex: number) {
+  const elapsed = performance.now() - orbitStartTime
+
+  const duration = 120000 + layerIndex * 300000
+  const progress = (elapsed % duration) / duration
+
+  const direction = layerIndex % 2 === 0 ? 1 : -1
+
+  return progress * 360 * direction
+}
+
+/*
+|--------------------------------------------------------------------------
+| Orbit animation
+|--------------------------------------------------------------------------
+*/
+
+function startOrbitAnimation() {
+  orbitStartTime = performance.now()
+
+  function animate() {
+    /*
+     * Trigger Vue reactivity so node positions are
+     * recalculated on every animation frame.
+     */
+    orbitTick.value++
+
+    orbitAnimation = requestAnimationFrame(animate)
+  }
+
+  orbitAnimation = requestAnimationFrame(animate)
+}
+
+const orbitTick = ref(0)
+
 function getNodePosition(layerIndex: number, nodeIndex: number) {
+  /*
+   * Access the reactive tick so this function is
+   * recalculated while the orbit animation runs.
+   */
+  orbitTick.value
+
   const layer = layers[layerIndex]
-
   const radius = layerRadius(layerIndex)
-
   const angleStep = 360 / layer.length
 
-  /*
-   * Rotate each layer slightly.
-   *
-   * This prevents every layer from
-   * lining up radially.
-   */
   const rotationPerLayer = 18
+  const staticOffset = -90 + layerIndex * rotationPerLayer
+  const animatedRotation = layerOrbitRotation(layerIndex)
 
-  const angleOffset = -90 + layerIndex * rotationPerLayer
-
-  const angle = angleOffset + nodeIndex * angleStep
+  const angle = staticOffset + nodeIndex * angleStep + animatedRotation
 
   const radians = (angle * Math.PI) / 180
 
   return {
     x: radius * Math.cos(radians),
-
     y: radius * Math.sin(radians),
   }
 }
@@ -302,7 +357,7 @@ function nodePosition(layerIndex: number, nodeIndex: number) {
 
 /*
  * Find a widget by its ID,
- * calculate its world position,
+ * calculate its current world position,
  * then move the camera so that
  * the widget ends up in the center
  * of the viewport.
@@ -336,6 +391,28 @@ function navigateToWidget(id: string) {
     return
   }
 }
+
+/*
+|--------------------------------------------------------------------------
+| Lifecycle
+|--------------------------------------------------------------------------
+*/
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+  startOrbitAnimation()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+
+  stopCameraAnimation()
+
+  if (orbitAnimation !== null) {
+    cancelAnimationFrame(orbitAnimation)
+    orbitAnimation = null
+  }
+})
 </script>
 
 <template>
@@ -357,7 +434,7 @@ function navigateToWidget(id: string) {
       not the moving world.
     -->
     <nav class="floating-nav" @pointerdown.stop @click.stop>
-      <button type="button" class="nav-item" @click="navigateToWidget('meep')">Meep</button>
+      <button type="button" class="nav-item" @click="navigateToWidget('meep')">Home</button>
 
       <button type="button" class="nav-item" @click="navigateToWidget('github')">GitHub</button>
 
@@ -374,6 +451,7 @@ function navigateToWidget(id: string) {
 
     <!--
       WORLD
+
       Everything inside this element moves
       when the camera changes.
     -->
@@ -400,7 +478,9 @@ function navigateToWidget(id: string) {
       />
 
       <!--
-        Orbit nodes
+        Orbit nodes.
+        Their positions are recalculated continuously
+        so each layer slowly moves around Meep.
       -->
       <template v-for="(layer, layerIndex) in layers" :key="layerIndex">
         <button
@@ -432,15 +512,7 @@ function navigateToWidget(id: string) {
       <!--
         Center node
       -->
-      <button
-        type="button"
-        class="meep-node"
-        :class="{
-          active: activeWindow === 'meep',
-        }"
-        @pointerdown.stop
-        @click.stop="openWindow('meep')"
-      >
+      <button type="button" class="meep-node" @pointerdown.stop @click.stop="openWindow('meep')">
         <div class="node-icon">
           <FeUser />
         </div>
@@ -636,20 +708,23 @@ function navigateToWidget(id: string) {
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
+    box-shadow 0.15s ease,
     transform 0.15s ease;
 }
 
 .orbit-node:hover {
-  background: #151515;
+  background: #15130e;
+  border-color: #9f864d;
 
-  border-color: #555;
+  box-shadow:
+    0 0 0 1px rgba(212, 175, 90, 0.12),
+    0 0 20px rgba(212, 175, 90, 0.12);
 
   transform: translate(-50%, -50%) scale(1.05);
 }
 
 .orbit-node.active {
   background: #1c1c1c;
-
   border-color: #777;
 }
 
@@ -664,21 +739,25 @@ function navigateToWidget(id: string) {
   height: 48px;
 
   display: flex;
+
   align-items: center;
   justify-content: center;
 
   margin-bottom: 4px;
 
   border: 1px solid #2a2a2a;
+
   border-radius: 12px;
 
   background: #181818;
+
   color: #aaa;
 }
 
 .node-icon :deep(svg) {
   width: 21px;
   height: 21px;
+
   stroke-width: 1.5;
 }
 
@@ -743,17 +822,29 @@ function navigateToWidget(id: string) {
   transition:
     background 0.2s ease,
     border-color 0.2s ease,
+    box-shadow 0.2s ease,
     transform 0.2s ease;
 }
 
-.meep-node:hover,
-.meep-node.active {
-  background: #181818;
+.meep-node:hover {
+  background: #15130e;
 
-  border-color: #777;
+  border-color: #b89b5e;
+
+  box-shadow:
+    0 0 0 1px rgba(212, 175, 90, 0.14),
+    0 0 24px rgba(212, 175, 90, 0.14);
 }
 
 .meep-node.active {
+  background: #181818;
+
+  border-color: #b89b5e;
+
+  box-shadow:
+    0 0 0 1px rgba(212, 175, 90, 0.14),
+    0 0 24px rgba(212, 175, 90, 0.12);
+
   transform: translate(-50%, -50%) scale(1.04);
 }
 
@@ -767,6 +858,20 @@ function navigateToWidget(id: string) {
   color: #777;
 
   font-size: 11px;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Reduced motion
+|--------------------------------------------------------------------------
+*/
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-node,
+  .meep-node,
+  .nav-item {
+    transition: none;
+  }
 }
 
 /*
