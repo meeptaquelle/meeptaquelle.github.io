@@ -28,7 +28,7 @@ const emit = defineEmits<{
   top: 50%;
   left: 50%;
 
-  width: min(700px, calc(100vw - 40px));
+    width: min(1000px, calc(100vw - 40px));
   max-height: calc(100vh - 40px);
 
   transform: translate(-50%, -50%);
