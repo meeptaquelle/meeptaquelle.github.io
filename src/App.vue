@@ -18,6 +18,7 @@ import SpotifyWidget from './components/SpotifyWidget.vue'
 import SpotifyArtistWidget from './components/SpotifyArtistWidget.vue'
 import MessageWidget from './components/MessageWidget.vue'
 import ProfileWidget from './components/ProfileWidget.vue'
+import ProjectWidget from './components/ProjectWidget.vue'
 
 interface WidgetNode {
   id: string
@@ -41,7 +42,7 @@ const layers: WidgetNode[][] = [
       label: 'Projects',
       description: 'Things I have built',
       icon: FeBriefcase,
-      component: null,
+      component: ProjectWidget,
     },
     {
       id: 'stack',
