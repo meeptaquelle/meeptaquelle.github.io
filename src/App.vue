@@ -93,9 +93,6 @@ const isDragging = ref(false)
 
 let startX = 0
 let startY = 0
-let startCameraX = 0
-let startCameraY = 0
-
 let cameraAnimation: number | null = null
 let orbitAnimation: number | null = null
 let orbitStartTime = 0
@@ -201,57 +198,48 @@ function moveCameraTo(targetX: number, targetY: number) {
 
   cameraAnimation = requestAnimationFrame(animate)
 }
-
 /*
 |--------------------------------------------------------------------------
 | Dragging
 |--------------------------------------------------------------------------
 */
 
-function startDrag(event: PointerEvent) {
-  stopCameraAnimation()
-
-  isDragging.value = true
+function startDrag(event: PointerEvent): void {
+  if (activeWindow.value) {
+    return
+  }
 
   startX = event.clientX
   startY = event.clientY
 
-  startCameraX = camera.x
-  startCameraY = camera.y
-
-  const target = event.currentTarget as HTMLElement | null
-
-  if (target) {
-    target.setPointerCapture(event.pointerId)
-  }
+  isDragging.value = true
 }
 
-function drag(event: PointerEvent) {
-  if (!isDragging.value) {
+function drag(event: PointerEvent): void {
+  if (activeWindow.value || !isDragging.value) {
     return
   }
 
-  const dx = event.clientX - startX
-  const dy = event.clientY - startY
+  const deltaX = event.clientX - startX
+  const deltaY = event.clientY - startY
 
-  camera.x = startCameraX + dx
-  camera.y = startCameraY + dy
+  camera.x += deltaX
+  camera.y += deltaY
+
+  startX = event.clientX
+  startY = event.clientY
 }
-
-function endDrag(event?: PointerEvent) {
+function endDrag(event?: PointerEvent): void {
   isDragging.value = false
 
-  if (!event) {
-    return
-  }
-
-  const target = event.currentTarget as HTMLElement | null
-
-  if (target?.hasPointerCapture(event.pointerId)) {
-    target.releasePointerCapture(event.pointerId)
+  if (
+    event &&
+    event.currentTarget instanceof HTMLElement &&
+    event.currentTarget.hasPointerCapture(event.pointerId)
+  ) {
+    event.currentTarget.releasePointerCapture(event.pointerId)
   }
 }
-
 /*
 |--------------------------------------------------------------------------
 | World layout
@@ -314,7 +302,6 @@ function startOrbitAnimation() {
 }
 
 const orbitTick = ref(0)
-
 function getNodePosition(layerIndex: number, nodeIndex: number) {
   /*
    * Access the reactive tick so this function is
@@ -323,6 +310,14 @@ function getNodePosition(layerIndex: number, nodeIndex: number) {
   orbitTick.value
 
   const layer = layers[layerIndex]
+
+  if (!layer) {
+    return {
+      x: 0,
+      y: 0,
+    }
+  }
+
   const radius = layerRadius(layerIndex)
   const angleStep = 360 / layer.length
 
@@ -361,8 +356,7 @@ function nodePosition(layerIndex: number, nodeIndex: number) {
  * then move the camera so that
  * the widget ends up in the center
  * of the viewport.
- */
-function navigateToWidget(id: string) {
+ */ function navigateToWidget(id: string) {
   /*
    * Meep is the world origin.
    */
@@ -373,6 +367,10 @@ function navigateToWidget(id: string) {
 
   for (let layerIndex = 0; layerIndex < layers.length; layerIndex++) {
     const layer = layers[layerIndex]
+
+    if (!layer) {
+      continue
+    }
 
     const nodeIndex = layer.findIndex((node) => node.id === id)
 
@@ -425,8 +423,6 @@ onUnmounted(() => {
     @pointermove="drag"
     @pointerup="endDrag"
     @pointercancel="endDrag"
-    @pointerleave="endDrag"
-    @click="closeWindow"
   >
     <!--
       Floating navigation.
@@ -459,12 +455,13 @@ onUnmounted(() => {
       class="canvas-world"
       :style="{
         transform: `
-          translate(
-            calc(50vw + ${camera.x}px),
-            calc(50vh + ${camera.y}px)
-          )
-        `,
+      translate(
+        calc(50vw + ${camera.x}px),
+        calc(50vh + ${camera.y}px)
+      )
+    `,
       }"
+      @click="closeWindow"
     >
       <!-- Orbit rings -->
       <div

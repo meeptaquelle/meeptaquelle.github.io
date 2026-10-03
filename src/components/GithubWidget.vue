@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import api from '@/services/api'
 
 interface HeatmapDay {
   date: string
@@ -64,7 +65,13 @@ const heatmapWeeks = computed<HeatmapDay[][]>(() => {
     return []
   }
 
-  const firstDate = new Date(`${days[0].date}T00:00:00`)
+  const firstDayData = days[0]
+
+  if (!firstDayData) {
+    return []
+  }
+
+  const firstDate = new Date(`${firstDayData.date}T00:00:00`)
   const firstDay = firstDate.getDay()
 
   const paddedDays: HeatmapDay[] = [
@@ -75,9 +82,7 @@ const heatmapWeeks = computed<HeatmapDay[][]>(() => {
       empty: true,
     })),
     ...days,
-  ]
-
-  // Only keep enough data for 52 complete weeks.
+  ] // Only keep enough data for 52 complete weeks.
   const maxDays = 52 * 7
   const trimmedDays = paddedDays.slice(-maxDays)
 
@@ -91,33 +96,25 @@ const heatmapWeeks = computed<HeatmapDay[][]>(() => {
 })
 async function loadContributions(): Promise<void> {
   try {
-    const response = await fetch('http://127.0.0.1:8080/api/github/contributions')
+    const response = await api.get('/api/github/contributions')
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch GitHub contributions')
-    }
-
-    contributions.value = await response.json()
+    contributions.value = response.data
   } catch (err) {
     console.error(err)
   }
 }
+
 async function loadGitHub(): Promise<void> {
   try {
-    const response = await fetch('http://127.0.0.1:8080/api/github')
+    const response = await api.get('/api/github')
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch GitHub data')
-    }
-
-    data.value = await response.json()
+    data.value = response.data
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to fetch GitHub data'
   } finally {
     loading.value = false
   }
 }
-
 function formatDate(date: string): string {
   return new Date(date).toLocaleDateString('en-US', {
     month: 'short',
