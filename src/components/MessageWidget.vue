@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import api from '@/services/api'
 
 interface Message {
   id: number
@@ -17,13 +18,9 @@ const error = ref<string | null>(null)
 
 async function loadMessages(): Promise<void> {
   try {
-    const response = await fetch('http://127.0.0.1:8080/api/messages')
+    const response = await api.get('/api/messages')
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch messages')
-    }
-
-    messages.value = await response.json()
+    messages.value = response.data
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to fetch messages'
   } finally {
@@ -40,22 +37,12 @@ async function sendMessage(): Promise<void> {
   error.value = null
 
   try {
-    const response = await fetch('http://127.0.0.1:8080/api/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name: name.value.trim() || 'Anonymous',
-        message: message.value.trim(),
-      }),
+    const response = await api.post('/api/messages', {
+      name: name.value.trim() || 'Anonymous',
+      message: message.value.trim(),
     })
 
-    if (!response.ok) {
-      throw new Error('Failed to send message')
-    }
-
-    const createdMessage: Message = await response.json()
+    const createdMessage: Message = response.data
 
     messages.value.push(createdMessage)
 

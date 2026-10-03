@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import api from '@/services/api'
 import { onMounted, ref } from 'vue'
 
 interface SpotifyArtist {
@@ -13,15 +14,11 @@ const error = ref<string | null>(null)
 
 async function loadArtists(): Promise<void> {
   try {
-    const response = await fetch('http://127.0.0.1:8080/api/spotify/top-artists')
+    const response = await api.get('/api/spotify/top-artists')
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch Spotify artists')
-    }
-
-    artists.value = await response.json()
+    artists.value = response.data
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to fetch Spotify artists'
+    error.value = err instanceof Error ? err.message : 'Failed to fetch Spotify data'
   } finally {
     loading.value = false
   }

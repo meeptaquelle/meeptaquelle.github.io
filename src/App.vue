@@ -1,19 +1,29 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import type { Component } from 'vue'
 
-import WidgetWindow from './components/WidgetWindow.vue'
+import {
+  FeGithub,
+  FeMusic,
+  FeUsers,
+  FeBriefcase,
+  FeMessageSquare,
+  FeCode,
+  FeUser,
+} from '@kalimahapps/vue-icons/fe'
 
+import WidgetWindow from './components/WidgetWindow.vue'
 import GithubWidget from './components/GithubWidget.vue'
 import SpotifyWidget from './components/SpotifyWidget.vue'
 import SpotifyArtistWidget from './components/SpotifyArtistWidget.vue'
 import MessageWidget from './components/MessageWidget.vue'
+import ProfileWidget from './components/ProfileWidget.vue'
 
 interface WidgetNode {
   id: string
   label: string
   description: string
-  icon: string
+  icon: Component
   component: Component | null
 }
 
@@ -23,66 +33,69 @@ const layers: WidgetNode[][] = [
       id: 'github',
       label: 'GitHub',
       description: 'My code and projects',
-      icon: '⌘',
+      icon: FeGithub,
       component: GithubWidget,
+    },
+    {
+      id: 'projects',
+      label: 'Projects',
+      description: 'Things I have built',
+      icon: FeBriefcase,
+      component: null,
+    },
+    {
+      id: 'stack',
+      label: 'Stack',
+      description: 'Tools I work with',
+      icon: FeCode,
+      component: null,
+    },
+  ],
+
+  [
+    {
+      id: 'messages',
+      label: 'Messages',
+      description: 'Leave me a message',
+      icon: FeMessageSquare,
+      component: MessageWidget,
     },
     {
       id: 'tracks',
       label: 'Top Tracks',
       description: 'What I listen to',
-      icon: '♫',
+      icon: FeMusic,
       component: SpotifyWidget,
     },
     {
       id: 'artists',
       label: 'Top Artists',
       description: 'Artists on repeat',
-      icon: '◉',
+      icon: FeUsers,
       component: SpotifyArtistWidget,
     },
   ],
-
-  [
-    {
-      id: 'projects',
-      label: 'Projects',
-      description: 'Things I have built',
-      icon: '◇',
-      component: null,
-    },
-    {
-      id: 'messages',
-      label: 'Messages',
-      description: 'Leave me a message',
-      icon: '□',
-      component: MessageWidget,
-    },
-    {
-      id: 'stack',
-      label: 'Stack',
-      description: 'Tools I work with',
-      icon: '△',
-      component: null,
-    },
-  ],
 ]
-
+const centerNode: WidgetNode = {
+  id: 'meep',
+  label: 'Profile',
+  description: 'About me',
+  icon: FeUser,
+  component: ProfileWidget,
+}
 const camera = reactive({
   x: 0,
   y: 0,
 })
 
 const activeWindow = ref<string | null>(null)
-
 const isDragging = ref(false)
 
 let startX = 0
 let startY = 0
-
-let startCameraX = 0
-let startCameraY = 0
-
 let cameraAnimation: number | null = null
+let orbitAnimation: number | null = null
+let orbitStartTime = 0
 
 /*
 |--------------------------------------------------------------------------
@@ -95,8 +108,8 @@ const activeNode = computed(() => {
     return null
   }
 
-  if (activeWindow.value === 'meep') {
-    return null
+  if (activeWindow.value === centerNode.id) {
+    return centerNode
   }
 
   for (const layer of layers) {
@@ -113,14 +126,7 @@ const activeNode = computed(() => {
 const activeWidget = computed(() => {
   return activeNode.value?.component ?? null
 })
-
-const windowTitle = computed(() => {
-  if (activeWindow.value === 'meep') {
-    return 'Introduction'
-  }
-
-  return activeNode.value?.label ?? ''
-})
+const windowTitle = computed(() => activeNode.value?.label ?? '')
 
 /*
 |--------------------------------------------------------------------------
@@ -134,6 +140,16 @@ function openWindow(id: string) {
 
 function closeWindow() {
   activeWindow.value = null
+}
+
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    closeWindow()
+  }
+
+  if (event.key === 'Home' || event.key.toLowerCase() === 'h') {
+    navigateToWidget('meep')
+  }
 }
 
 /*
@@ -154,14 +170,11 @@ function moveCameraTo(targetX: number, targetY: number) {
 
   const startX = camera.x
   const startY = camera.y
-
   const startTime = performance.now()
-
   const duration = 750
 
   function animate(currentTime: number) {
     const elapsed = currentTime - startTime
-
     const progress = Math.min(elapsed / duration, 1)
 
     /*
@@ -174,7 +187,6 @@ function moveCameraTo(targetX: number, targetY: number) {
     const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2
 
     camera.x = startX + (targetX - startX) * eased
-
     camera.y = startY + (targetY - startY) * eased
 
     if (progress < 1) {
@@ -186,42 +198,48 @@ function moveCameraTo(targetX: number, targetY: number) {
 
   cameraAnimation = requestAnimationFrame(animate)
 }
-
 /*
 |--------------------------------------------------------------------------
 | Dragging
 |--------------------------------------------------------------------------
 */
 
-function startDrag(event: MouseEvent) {
-  stopCameraAnimation()
-
-  isDragging.value = true
+function startDrag(event: PointerEvent): void {
+  if (activeWindow.value) {
+    return
+  }
 
   startX = event.clientX
   startY = event.clientY
 
-  startCameraX = camera.x
-  startCameraY = camera.y
+  isDragging.value = true
 }
 
-function drag(event: MouseEvent) {
-  if (!isDragging.value) {
+function drag(event: PointerEvent): void {
+  if (activeWindow.value || !isDragging.value) {
     return
   }
 
-  const dx = event.clientX - startX
-  const dy = event.clientY - startY
+  const deltaX = event.clientX - startX
+  const deltaY = event.clientY - startY
 
-  camera.x = startCameraX + dx
+  camera.x += deltaX
+  camera.y += deltaY
 
-  camera.y = startCameraY + dy
+  startX = event.clientX
+  startY = event.clientY
 }
-
-function endDrag() {
+function endDrag(event?: PointerEvent): void {
   isDragging.value = false
-}
 
+  if (
+    event &&
+    event.currentTarget instanceof HTMLElement &&
+    event.currentTarget.hasPointerCapture(event.pointerId)
+  ) {
+    event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+}
 /*
 |--------------------------------------------------------------------------
 | World layout
@@ -236,38 +254,83 @@ function layerRadius(layerIndex: number) {
 }
 
 /*
- * Returns the actual world-space position
- * of a node.
+ * Each layer rotates very slowly around Meep.
  *
- * Meep is always at:
+ * Layer 0:
+ * 60 seconds per revolution
  *
- * x: 0
- * y: 0
+ * Layer 1:
+ * 90 seconds per revolution
+ *
+ * Layer 2:
+ * 120 seconds per revolution
+ *
+ * Alternating direction keeps the layers from
+ * feeling like a single rigid wheel.
  */
+function layerOrbitRotation(layerIndex: number) {
+  const elapsed = performance.now() - orbitStartTime
+
+  const duration = 120000 + layerIndex * 300000
+  const progress = (elapsed % duration) / duration
+
+  const direction = layerIndex % 2 === 0 ? 1 : -1
+
+  return progress * 360 * direction
+}
+
+/*
+|--------------------------------------------------------------------------
+| Orbit animation
+|--------------------------------------------------------------------------
+*/
+
+function startOrbitAnimation() {
+  orbitStartTime = performance.now()
+
+  function animate() {
+    /*
+     * Trigger Vue reactivity so node positions are
+     * recalculated on every animation frame.
+     */
+    orbitTick.value++
+
+    orbitAnimation = requestAnimationFrame(animate)
+  }
+
+  orbitAnimation = requestAnimationFrame(animate)
+}
+
+const orbitTick = ref(0)
 function getNodePosition(layerIndex: number, nodeIndex: number) {
+  /*
+   * Access the reactive tick so this function is
+   * recalculated while the orbit animation runs.
+   */
+  orbitTick.value
+
   const layer = layers[layerIndex]
 
-  const radius = layerRadius(layerIndex)
+  if (!layer) {
+    return {
+      x: 0,
+      y: 0,
+    }
+  }
 
+  const radius = layerRadius(layerIndex)
   const angleStep = 360 / layer.length
 
-  /*
-   * Rotate each layer slightly.
-   *
-   * This prevents every layer from
-   * lining up radially.
-   */
   const rotationPerLayer = 18
+  const staticOffset = -90 + layerIndex * rotationPerLayer
+  const animatedRotation = layerOrbitRotation(layerIndex)
 
-  const angleOffset = -90 + layerIndex * rotationPerLayer
-
-  const angle = angleOffset + nodeIndex * angleStep
+  const angle = staticOffset + nodeIndex * angleStep + animatedRotation
 
   const radians = (angle * Math.PI) / 180
 
   return {
     x: radius * Math.cos(radians),
-
     y: radius * Math.sin(radians),
   }
 }
@@ -289,12 +352,11 @@ function nodePosition(layerIndex: number, nodeIndex: number) {
 
 /*
  * Find a widget by its ID,
- * calculate its world position,
+ * calculate its current world position,
  * then move the camera so that
  * the widget ends up in the center
  * of the viewport.
- */
-function navigateToWidget(id: string) {
+ */ function navigateToWidget(id: string) {
   /*
    * Meep is the world origin.
    */
@@ -305,6 +367,10 @@ function navigateToWidget(id: string) {
 
   for (let layerIndex = 0; layerIndex < layers.length; layerIndex++) {
     const layer = layers[layerIndex]
+
+    if (!layer) {
+      continue
+    }
 
     const nodeIndex = layer.findIndex((node) => node.id === id)
 
@@ -323,6 +389,28 @@ function navigateToWidget(id: string) {
     return
   }
 }
+
+/*
+|--------------------------------------------------------------------------
+| Lifecycle
+|--------------------------------------------------------------------------
+*/
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+  startOrbitAnimation()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+
+  stopCameraAnimation()
+
+  if (orbitAnimation !== null) {
+    cancelAnimationFrame(orbitAnimation)
+    orbitAnimation = null
+  }
+})
 </script>
 
 <template>
@@ -331,19 +419,18 @@ function navigateToWidget(id: string) {
     :class="{
       dragging: isDragging,
     }"
-    @mousedown="startDrag"
-    @mousemove="drag"
-    @mouseup="endDrag"
-    @mouseleave="endDrag"
-    @click="closeWindow"
+    @pointerdown="startDrag"
+    @pointermove="drag"
+    @pointerup="endDrag"
+    @pointercancel="endDrag"
   >
     <!--
       Floating navigation.
       This stays attached to the viewport,
       not the moving world.
     -->
-    <nav class="floating-nav" @mousedown.stop @click.stop>
-      <button type="button" class="nav-item" @click="navigateToWidget('meep')">Meep</button>
+    <nav class="floating-nav" @pointerdown.stop @click.stop>
+      <button type="button" class="nav-item" @click="navigateToWidget('meep')">Home</button>
 
       <button type="button" class="nav-item" @click="navigateToWidget('github')">GitHub</button>
 
@@ -360,6 +447,7 @@ function navigateToWidget(id: string) {
 
     <!--
       WORLD
+
       Everything inside this element moves
       when the camera changes.
     -->
@@ -367,12 +455,13 @@ function navigateToWidget(id: string) {
       class="canvas-world"
       :style="{
         transform: `
-          translate(
-            calc(50vw + ${camera.x}px),
-            calc(50vh + ${camera.y}px)
-          )
-        `,
+      translate(
+        calc(50vw + ${camera.x}px),
+        calc(50vh + ${camera.y}px)
+      )
+    `,
       }"
+      @click="closeWindow"
     >
       <!-- Orbit rings -->
       <div
@@ -386,7 +475,9 @@ function navigateToWidget(id: string) {
       />
 
       <!--
-        Orbit nodes
+        Orbit nodes.
+        Their positions are recalculated continuously
+        so each layer slowly moves around Meep.
       -->
       <template v-for="(layer, layerIndex) in layers" :key="layerIndex">
         <button
@@ -398,11 +489,11 @@ function navigateToWidget(id: string) {
             active: activeWindow === node.id,
           }"
           :style="nodePosition(layerIndex, nodeIndex)"
-          @mousedown.stop
+          @pointerdown.stop
           @click.stop="openWindow(node.id)"
         >
           <div class="node-icon">
-            {{ node.icon }}
+            <component :is="node.icon" />
           </div>
 
           <strong class="node-title">
@@ -418,18 +509,14 @@ function navigateToWidget(id: string) {
       <!--
         Center node
       -->
-      <button
-        type="button"
-        class="meep-node"
-        :class="{
-          active: activeWindow === 'meep',
-        }"
-        @mousedown.stop
-        @click.stop="openWindow('meep')"
-      >
+      <button type="button" class="meep-node" @pointerdown.stop @click.stop="openWindow('meep')">
+        <div class="node-icon">
+          <FeUser />
+        </div>
+
         <strong>Meep</strong>
 
-        <span> Introduction </span>
+        <span>Introduction</span>
       </button>
     </div>
 
@@ -461,6 +548,7 @@ function navigateToWidget(id: string) {
   cursor: grab;
 
   user-select: none;
+  touch-action: none;
 }
 
 .canvas-viewport.dragging {
@@ -617,20 +705,23 @@ function navigateToWidget(id: string) {
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
+    box-shadow 0.15s ease,
     transform 0.15s ease;
 }
 
 .orbit-node:hover {
-  background: #151515;
+  background: #15130e;
+  border-color: #9f864d;
 
-  border-color: #555;
+  box-shadow:
+    0 0 0 1px rgba(212, 175, 90, 0.12),
+    0 0 20px rgba(212, 175, 90, 0.12);
 
   transform: translate(-50%, -50%) scale(1.05);
 }
 
 .orbit-node.active {
   background: #1c1c1c;
-
   border-color: #777;
 }
 
@@ -658,8 +749,13 @@ function navigateToWidget(id: string) {
   background: #181818;
 
   color: #aaa;
+}
 
-  font-size: 22px;
+.node-icon :deep(svg) {
+  width: 21px;
+  height: 21px;
+
+  stroke-width: 1.5;
 }
 
 /*
@@ -723,17 +819,29 @@ function navigateToWidget(id: string) {
   transition:
     background 0.2s ease,
     border-color 0.2s ease,
+    box-shadow 0.2s ease,
     transform 0.2s ease;
 }
 
-.meep-node:hover,
-.meep-node.active {
-  background: #181818;
+.meep-node:hover {
+  background: #15130e;
 
-  border-color: #777;
+  border-color: #b89b5e;
+
+  box-shadow:
+    0 0 0 1px rgba(212, 175, 90, 0.14),
+    0 0 24px rgba(212, 175, 90, 0.14);
 }
 
 .meep-node.active {
+  background: #181818;
+
+  border-color: #b89b5e;
+
+  box-shadow:
+    0 0 0 1px rgba(212, 175, 90, 0.14),
+    0 0 24px rgba(212, 175, 90, 0.12);
+
   transform: translate(-50%, -50%) scale(1.04);
 }
 
@@ -747,6 +855,20 @@ function navigateToWidget(id: string) {
   color: #777;
 
   font-size: 11px;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Reduced motion
+|--------------------------------------------------------------------------
+*/
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-node,
+  .meep-node,
+  .nav-item {
+    transition: none;
+  }
 }
 
 /*
