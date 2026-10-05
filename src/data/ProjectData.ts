@@ -1,7 +1,6 @@
 export type ProjectCategory =
-  | 'frontend'
-  | 'backend'
-  | 'fullstack'
+
+  | 'web'
   | 'mobile'
   | 'iot'
   | 'machine-learning'
@@ -17,23 +16,18 @@ export interface Project {
   name: string
   description: string
   year: number
-
   category: ProjectCategory
   type: ProjectType
-
   tools: string[]
-
   link?: string
   repository?: string
-
+  attachments?: string[]
   status?: ProjectStatus
 }
 
 export const categories = [
   { value: 'all', label: 'All' },
-  { value: 'frontend', label: 'Frontend' },
-  { value: 'backend', label: 'Backend' },
-  { value: 'fullstack', label: 'Fullstack' },
+  { value: 'web', label: 'Website' },
   { value: 'mobile', label: 'Mobile' },
   { value: 'iot', label: 'IoT' },
   { value: 'machine-learning', label: 'Machine Learning' },
@@ -43,12 +37,9 @@ export const categories = [
 
 export const types = [
   { value: 'all', label: 'All' },
-  { value: 'work', label: 'Work' },
-  { value: 'internship', label: 'Internship' },
-  { value: 'college', label: 'College' },
-  { value: 'thesis', label: 'Thesis' },
-  { value: 'personal', label: 'Personal' },
-  { value: 'freelance', label: 'Freelance' },
+  { value: 'work', label: 'Work Project' },
+  { value: 'college', label: 'College Project' },
+  { value: 'personal', label: 'Personal Project' },
 ] as const
 
 export const projects: Project[] = [
@@ -58,9 +49,11 @@ export const projects: Project[] = [
     description:
       'Enterprise resource planning system development, contributing to unfinished modules, feature implementation, bug fixes, and changes based on development tickets.',
     year: 2026,
-    category: 'fullstack',
+    category: 'web',
     type: 'work',
-    tools: ['Vue.js', 'Laravel', 'MySQL', 'Git', 'Postman'],
+    attachments: ['/projects/project-1.png'],
+    link: 'https://membahana.com/',
+    tools: ['React.js', 'Laravel', 'MySQL', 'Github', 'Postman'],
     status: 'ongoing',
   },
 
@@ -70,7 +63,7 @@ export const projects: Project[] = [
     description:
       'Finance database management website developed during a six-month internship, including database management and CRUD functionality.',
     year: 2025,
-    category: 'fullstack',
+    category: 'web',
     type: 'work',
     tools: ['Vue.js', 'Tailwind CSS', 'MySQL', 'Git'],
     status: 'completed',
@@ -107,7 +100,7 @@ export const projects: Project[] = [
       'IoT security prototype that detects movement and sends notifications through Telegram.',
     year: 2024,
     category: 'iot',
-    type: 'personal',
+    type: 'college',
     tools: ['ESP32', 'PIR Sensor', 'Buzzer', 'Telegram Bot', 'Wokwi'],
     status: 'completed',
   },
