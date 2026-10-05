@@ -28,6 +28,15 @@ interface WidgetNode {
   component: Component | null
 }
 
+const showDragHint = ref(
+  sessionStorage.getItem('drag-hint-dismissed') !== 'true',
+)
+
+function dismissDragHint() {
+  showDragHint.value = false
+  sessionStorage.setItem('drag-hint-dismissed', 'true')
+}
+
 const layers: WidgetNode[][] = [
   [
     {
@@ -452,6 +461,19 @@ onUnmounted(() => {
       Everything inside this element moves
       when the camera changes.
     -->
+      <div
+  v-if="showDragHint"
+  class="drag-hint"
+  @click="dismissDragHint"
+  @pointerdown.stop="dismissDragHint"
+>
+  <span class="drag-hint-icon">✥</span>
+
+  <div class="drag-hint-content">
+    <strong>Drag to explore</strong>
+    <span>Click and drag anywhere to move around</span>
+  </div>
+</div>
     <div
       class="canvas-world"
       :style="{
@@ -515,7 +537,7 @@ onUnmounted(() => {
           <FeUser />
         </div>
 
-        <strong>Meep</strong>
+        <strong>About Me</strong>
 
         <span>Introduction</span>
       </button>
@@ -536,20 +558,78 @@ onUnmounted(() => {
 | Viewport
 |--------------------------------------------------------------------------
 */
-
 .canvas-viewport {
   position: fixed;
   inset: 0;
-
   overflow: hidden;
 
-  background: #0a0a0a;
-  color: #fff;
+  background: #050505;
 
   cursor: grab;
-
   user-select: none;
   touch-action: none;
+}
+
+.canvas-viewport::before,
+.canvas-viewport::after {
+  content: '';
+  position: absolute;
+  width: 80vw;
+  height: 100vh;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(30px);
+  will-change: transform, opacity;
+}
+
+.canvas-viewport::before {
+  top: -15vh;
+  left: -10vw;
+  background: radial-gradient(
+    ellipse,
+    rgba(0, 153, 255, 0.08),
+    transparent 60%
+  );
+
+  animation: blue-breathe 14s ease-in-out infinite;
+}
+
+.canvas-viewport::after {
+  right: -10vw;
+  bottom: -15vh;
+  background: radial-gradient(
+    ellipse,
+    rgba(91, 0, 161, 0.13),
+    transparent 60%
+  );
+
+  animation: purple-breathe 18s ease-in-out infinite;
+}
+
+@keyframes blue-breathe {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: translate(8vw, 5vh) scale(1.15);
+    opacity: 1;
+  }
+}
+
+@keyframes purple-breathe {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: translate(-7vw, -6vh) scale(1.18);
+    opacity: 1;
+  }
 }
 
 .canvas-viewport.dragging {
@@ -636,18 +716,19 @@ onUnmounted(() => {
 | Orbit rings
 |--------------------------------------------------------------------------
 */
-
 .orbit-ring {
   position: absolute;
-
   left: 0;
   top: 0;
 
   transform: translate(-50%, -50%);
 
-  border: 1px dashed #1d1d1d;
-
+  border: 1px solid rgba(184, 155, 94, 0.12);
   border-radius: 50%;
+
+  box-shadow:
+    0 0 40px rgba(184, 155, 94, 0.025),
+    inset 0 0 40px rgba(184, 155, 94, 0.015);
 
   pointer-events: none;
 }
@@ -670,6 +751,13 @@ onUnmounted(() => {
   color: #fff;
 
   cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+
 }
 
 /*
@@ -677,48 +765,63 @@ onUnmounted(() => {
 | Orbit node
 |--------------------------------------------------------------------------
 */
-
 .orbit-node {
   width: 150px;
   height: 150px;
 
   display: flex;
   flex-direction: column;
-
   align-items: center;
   justify-content: center;
 
   gap: 5px;
-
   padding: 16px;
-
   box-sizing: border-box;
 
-  border: 1px solid #2a2a2a;
-
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 50%;
 
-  background: #0e0e0e;
+  background:
+    radial-gradient(
+      circle at 35% 30%,
+      rgba(255, 255, 255, 0.06),
+      transparent 45%
+    ),
+    #0e0e0e;
+
   color: #fff;
 
   cursor: pointer;
 
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 30px rgba(0, 0, 0, 0.35);
+
   transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .orbit-node:hover {
-  background: #15130e;
-  border-color: #9f864d;
+  background:
+    radial-gradient(
+      circle at 35% 30%,
+      rgba(184, 155, 94, 0.14),
+      transparent 50%
+    ),
+    #11100d;
+
+  border-color: #b89b5e;
 
   box-shadow:
-    0 0 0 1px rgba(212, 175, 90, 0.12),
-    0 0 20px rgba(212, 175, 90, 0.12);
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 1px rgba(184, 155, 94, 0.12),
+    0 0 30px rgba(184, 155, 94, 0.14),
+    0 15px 40px rgba(0, 0, 0, 0.4);
 
-  transform: translate(-50%, -50%) scale(1.05);
+  transform: translate(-50%, -50%) scale(1.06);
 }
 
 .orbit-node.active {
@@ -731,34 +834,52 @@ onUnmounted(() => {
 | Node icon
 |--------------------------------------------------------------------------
 */
-
 .node-icon {
   width: 48px;
   height: 48px;
 
   display: flex;
-
   align-items: center;
   justify-content: center;
 
   margin-bottom: 4px;
 
-  border: 1px solid #2a2a2a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
 
-  border-radius: 12px;
-
-  background: #181818;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.015)
+    );
 
   color: #aaa;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 5px 15px rgba(0, 0, 0, 0.25);
+
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
 }
 
-.node-icon :deep(svg) {
-  width: 21px;
-  height: 21px;
+.orbit-node:hover .node-icon {
+  color: #d4b56a;
+  border-color: rgba(184, 155, 94, 0.35);
 
-  stroke-width: 1.5;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(184, 155, 94, 0.14),
+      rgba(184, 155, 94, 0.03)
+    );
+
+  transform: translateY(-2px);
 }
-
 /*
 |--------------------------------------------------------------------------
 | Node text
@@ -793,7 +914,6 @@ onUnmounted(() => {
 | Meep
 |--------------------------------------------------------------------------
 */
-
 .meep-node {
   left: 0;
   top: 0;
@@ -802,18 +922,31 @@ onUnmounted(() => {
   height: 150px;
 
   display: flex;
-
   flex-direction: column;
-
   align-items: center;
   justify-content: center;
 
-  border: 1px solid #444;
-
+  border: 1px solid rgba(184, 155, 94, 0.45);
   border-radius: 50%;
 
-  background: #111;
+  background:
+    radial-gradient(
+      circle at 35% 25%,
+      rgba(184, 155, 94, 0.16),
+      transparent 50%
+    ),
+    radial-gradient(
+      circle,
+      #17140e,
+      #0d0d0d 70%
+    );
+
   color: #fff;
+
+  box-shadow:
+    0 0 0 1px rgba(184, 155, 94, 0.06),
+    0 0 35px rgba(184, 155, 94, 0.10),
+    0 20px 50px rgba(0, 0, 0, 0.45);
 
   cursor: pointer;
 
@@ -823,17 +956,16 @@ onUnmounted(() => {
     box-shadow 0.2s ease,
     transform 0.2s ease;
 }
-
 .meep-node:hover {
-  background: #15130e;
-
-  border-color: #b89b5e;
+  border-color: #d4b56a;
 
   box-shadow:
-    0 0 0 1px rgba(212, 175, 90, 0.14),
-    0 0 24px rgba(212, 175, 90, 0.14);
-}
+    0 0 0 1px rgba(184, 155, 94, 0.15),
+    0 0 45px rgba(184, 155, 94, 0.18),
+    0 20px 55px rgba(0, 0, 0, 0.5);
 
+  transform: translate(-50%, -50%) scale(1.06);
+}
 .meep-node.active {
   background: #181818;
 
@@ -894,6 +1026,112 @@ onUnmounted(() => {
 
   .nav-item {
     flex-shrink: 0;
+  }
+}.drag-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 36px;
+
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
+  padding: 14px 18px;
+
+  border: 1px solid #333;
+  border-radius: 12px;
+
+  background: rgba(14, 14, 14, 0.94);
+  backdrop-filter: blur(10px);
+
+  transform: translateX(-50%);
+  cursor: pointer;
+  z-index: 40;
+
+  animation: drag-hint-in 0.35s ease-out;
+
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.drag-hint:hover {
+  transform: translateX(-50%) translateY(-3px) scale(1.02);
+
+  border-color: #555;
+
+  box-shadow:
+    0 0 20px rgba(184, 155, 94, 0.12),
+    0 8px 30px rgba(0, 0, 0, 0.35);
+}
+
+.drag-hint-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 36px;
+  height: 36px;
+
+  border: 1px solid #2d2d2d;
+  border-radius: 9px;
+
+  color: #aaa;
+  font-size: 18px;
+
+  animation: drag-hint-float 1.5s ease-in-out infinite;
+
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.drag-hint:hover .drag-hint-icon {
+  color: #b89b5e;
+  border-color: #4a4030;
+
+  animation: none;
+  transform: scale(1.08);
+}
+.drag-hint-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.drag-hint-content strong {
+  color: #ddd;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.drag-hint-content span {
+  color: #777;
+  font-size: 11px;
+}
+
+@keyframes drag-hint-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes drag-hint-float {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(4px);
   }
 }
 </style>
