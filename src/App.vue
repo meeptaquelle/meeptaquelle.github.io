@@ -12,16 +12,40 @@ import {
   FeUser,
   FeActivity,
 } from '@kalimahapps/vue-icons/fe'
-
 import WidgetWindow from './components/WidgetWindow.vue'
-import GithubWidget from './components/GithubWidget.vue'
-import SpotifyWidget from './components/SpotifyWidget.vue'
-import SpotifyArtistWidget from './components/SpotifyArtistWidget.vue'
-import MessageWidget from './components/MessageWidget.vue'
-import ProfileWidget from './components/ProfileWidget.vue'
-import ProjectWidget from './components/ProjectWidget.vue'
-import StackWidget from './components/StackWidget.vue'
-import ExperienceWidget from './components/ExperienceWidget.vue'
+import { defineAsyncComponent } from 'vue'
+
+const GithubWidget = defineAsyncComponent(
+  () => import('./components/GithubWidget.vue')
+)
+
+const SpotifyWidget = defineAsyncComponent(
+  () => import('./components/SpotifyWidget.vue')
+)
+
+const SpotifyArtistWidget = defineAsyncComponent(
+  () => import('./components/SpotifyArtistWidget.vue')
+)
+
+const MessageWidget = defineAsyncComponent(
+  () => import('./components/MessageWidget.vue')
+)
+
+const ProfileWidget = defineAsyncComponent(
+  () => import('./components/ProfileWidget.vue')
+)
+
+const ProjectWidget = defineAsyncComponent(
+  () => import('./components/ProjectWidget.vue')
+)
+
+const StackWidget = defineAsyncComponent(
+  () => import('./components/StackWidget.vue')
+)
+
+const ExperienceWidget = defineAsyncComponent(
+  () => import('./components/ExperienceWidget.vue')
+)
 
 interface WidgetNode {
   id: string
