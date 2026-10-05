@@ -12,6 +12,16 @@ import {
 const selectedCategory = ref<string>('all')
 const selectedType = ref<string>('all')
 
+  const previewImage = ref<string | null>(null)
+
+function openImage(image: string) {
+  previewImage.value = image
+}
+
+function closeImage() {
+  previewImage.value = null
+}
+
 const filteredProjects = computed(() => {
   return projects.filter((project) => {
     const categoryMatch =
@@ -113,7 +123,11 @@ function getTypeLabel(type: ProjectType) {
               <div class="project-main">
                 <div class="project-info">
                   <div class="project-title-row">
-                    <h3>{{ project.name }}</h3>
+                    <h3>
+                      {{ getTypeLabel(project.type) }}
+                      <span class="title-separator">|</span>
+                      {{ project.name }}
+                    </h3>
 
                     <span v-if="project.status" class="project-status">
                       {{ project.status }}
@@ -122,15 +136,30 @@ function getTypeLabel(type: ProjectType) {
 
                   <div class="project-meta">
                     <span>{{ getCategoryLabel(project.category) }}</span>
-                    <span class="separator">·</span>
-                    <span>{{ getTypeLabel(project.type) }}</span>
                   </div>
 
                   <p class="project-description">
                     {{ project.description }}
                   </p>
+ <div
+  v-if="project.attachments?.length"
+  class="project-attachments"
+>
+  <button
+    v-for="(attachment, index) in project.attachments"
+    :key="index"
+    type="button"
+    class="project-attachment-button"
+    @click="openImage(attachment)"
+  >
+    <img
+      :src="attachment"
+      :alt="`${project.name} image ${index + 1}`"
+      class="project-attachment"
+    />
+  </button>
+</div>
                 </div>
-
                 <!-- Links -->
                 <div v-if="project.link || project.repository" class="project-links">
                   <a
@@ -174,6 +203,26 @@ function getTypeLabel(type: ProjectType) {
       </div>
     </div>
   </div>
+  <div
+  v-if="previewImage"
+  class="image-preview"
+  @click.self="closeImage"
+>
+  <button
+    type="button"
+    class="image-preview-close"
+    aria-label="Close image preview"
+    @click="closeImage"
+  >
+    ×
+  </button>
+
+  <img
+    :src="previewImage"
+    alt="Project preview"
+    class="image-preview-image"
+  />
+</div>
 </template>
 
 <style scoped>
@@ -339,11 +388,19 @@ function getTypeLabel(type: ProjectType) {
   min-width: 0;
 }
 
-.project-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.project-title-row h3 {
+  margin: 0;
+
+  font-size: 14px;
+  font-weight: 600;
 }
+
+.title-separator {
+  margin: 0 5px;
+  color: #444;
+}
+
+
 
 .project-title-row h3 {
   margin: 0;
@@ -367,7 +424,6 @@ function getTypeLabel(type: ProjectType) {
 .project-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
 
   margin-top: 4px;
 
@@ -498,4 +554,108 @@ function getTypeLabel(type: ProjectType) {
     width: 100%;
   }
 }
+.project-attachments {
+  display: flex;
+  gap: 8px;
+
+  margin-top: 14px;
+
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.project-attachments::-webkit-scrollbar {
+  display: none;
+}.project-attachment-button {
+  flex: 0 0 auto;
+
+  width: 180px;
+  height: 110px;
+  padding: 0;
+
+  border: 0;
+  border-radius: 7px;
+
+  background: transparent;
+
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.project-attachment {
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+
+  border: 1px solid #222;
+  border-radius: 7px;
+
+  background: #111;
+
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.project-attachment-button:hover .project-attachment {
+  border-color: #555;
+  transform: scale(1.03);
+}
+.image-preview {
+  position: fixed;
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 40px;
+
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(8px);
+
+  z-index: 1000;
+
+  cursor: pointer;
+}
+
+.image-preview-image {
+  max-width: 90vw;
+  max-height: 90vh;
+
+  object-fit: contain;
+
+  border: 1px solid #333;
+  border-radius: 10px;
+
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+
+  cursor: default;
+}
+
+.image-preview-close {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+
+  width: 36px;
+  height: 36px;
+
+  border: 1px solid #333;
+  border-radius: 50%;
+
+  background: #111;
+  color: #aaa;
+
+  font-size: 22px;
+  line-height: 1;
+
+  cursor: pointer;
+}
+
+.image-preview-close:hover {
+  border-color: #555;
+  color: #fff;
+} 
 </style>

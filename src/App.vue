@@ -10,6 +10,7 @@ import {
   FeMessageSquare,
   FeCode,
   FeUser,
+  FeActivity,
 } from '@kalimahapps/vue-icons/fe'
 
 import WidgetWindow from './components/WidgetWindow.vue'
@@ -19,6 +20,8 @@ import SpotifyArtistWidget from './components/SpotifyArtistWidget.vue'
 import MessageWidget from './components/MessageWidget.vue'
 import ProfileWidget from './components/ProfileWidget.vue'
 import ProjectWidget from './components/ProjectWidget.vue'
+import StackWidget from './components/StackWidget.vue'
+import ExperienceWidget from './components/ExperienceWidget.vue'
 
 interface WidgetNode {
   id: string
@@ -58,7 +61,14 @@ const layers: WidgetNode[][] = [
       label: 'Stack',
       description: 'Tools I work with',
       icon: FeCode,
-      component: null,
+      component: StackWidget,
+    },
+    {
+      id: 'experience',
+      label: 'Experience',
+      description: 'Things I have been part of',
+      icon: FeActivity,
+      component: ExperienceWidget,
     },
   ],
 
@@ -66,7 +76,7 @@ const layers: WidgetNode[][] = [
     {
       id: 'messages',
       label: 'Messages',
-      description: 'Leave me a message',
+      description: 'Leave me anonymous message!',
       icon: FeMessageSquare,
       component: MessageWidget,
     },
@@ -442,17 +452,19 @@ onUnmounted(() => {
     <nav class="floating-nav" @pointerdown.stop @click.stop>
       <button type="button" class="nav-item" @click="navigateToWidget('meep')">Home</button>
 
+      <button type="button" class="nav-item" @click="navigateToWidget('experience')">Experience</button>
+      
+      <button type="button" class="nav-item" @click="navigateToWidget('projects')">Projects</button>
+
+      <button type="button" class="nav-item" @click="navigateToWidget('stack')">Stack</button>
+
       <button type="button" class="nav-item" @click="navigateToWidget('github')">GitHub</button>
 
       <button type="button" class="nav-item" @click="navigateToWidget('tracks')">Tracks</button>
 
       <button type="button" class="nav-item" @click="navigateToWidget('artists')">Artists</button>
 
-      <button type="button" class="nav-item" @click="navigateToWidget('projects')">Projects</button>
-
       <button type="button" class="nav-item" @click="navigateToWidget('messages')">Messages</button>
-
-      <button type="button" class="nav-item" @click="navigateToWidget('stack')">Stack</button>
     </nav>
 
     <!--
