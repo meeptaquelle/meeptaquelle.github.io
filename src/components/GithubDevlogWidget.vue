@@ -205,17 +205,18 @@ onMounted(fetchDevlog)
   justify-content: space-between;
   gap: 16px;
   padding-bottom: 18px;
+
 }
 
 .devlog-heading h2 {
-  margin: 0;
+  margin: 10px;
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 .devlog-heading p {
-  margin: 4px 0 0;
+  margin: 10px;
   color: #777;
   font-size: 12px;
 }
