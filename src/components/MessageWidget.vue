@@ -496,6 +496,7 @@ onMounted(() => {
     padding-top: 16px;
     border-left: 0;
     border-top: 1px solid #2a2a2a;
+    overflow: auto;
   }
 }
 </style>
