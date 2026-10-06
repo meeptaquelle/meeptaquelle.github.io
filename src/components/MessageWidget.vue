@@ -292,10 +292,12 @@ onMounted(() => {
 
 .message-gif {
   display: block;
-  max-width: 100%;
-  max-height: 220px;
-  border-radius: 10px;
-  background: #1c1c1c;
+  max-width: 250px;
+  max-height: 250px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
 }
 
 .message-form {
