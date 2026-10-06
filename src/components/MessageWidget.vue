@@ -479,7 +479,16 @@ onMounted(() => {
   .message-widget {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto auto;
+
+    max-height: none;
+    overflow: visible;
+
     row-gap: 16px;
+  }
+
+  .messages {
+    height: 200px;
+    overflow-y: auto;
   }
 
   .message-form {
