@@ -431,7 +431,6 @@ function getTypeLabel(type: ExperienceType) {
   justify-content: center;
   padding: 40px;
   background: rgba(0, 0, 0, 0.82);
-  backdrop-filter: blur(8px);
   z-index: 1000;
   cursor: pointer;
 }

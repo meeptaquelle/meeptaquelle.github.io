@@ -613,7 +613,6 @@ function getTypeLabel(type: ProjectType) {
   padding: 40px;
 
   background: rgba(0, 0, 0, 0.82);
-  backdrop-filter: blur(8px);
 
   z-index: 1000;
 
