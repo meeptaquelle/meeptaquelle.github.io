@@ -228,9 +228,7 @@ onMounted(() => {
   max-width: none;
   min-width: 0;
   max-height: 500px;
-  overflow: scroll;
-  scrollbar-width: thin;
-  scrollbar-color: #444 transparent;
+  overflow: hidden;
 
   box-sizing: border-box;
   padding: 16px;
@@ -238,8 +236,15 @@ onMounted(() => {
   border-radius: 16px;
   background: #111;
   color: #fff;
+
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  grid-template-rows: auto 1fr;
+  column-gap: 24px;
 }
 .message-widget h2 {
+  grid-column: 1 / -1;
+
   margin: 0 0 16px;
   font-size: 18px;
   font-weight: 600;
@@ -250,10 +255,11 @@ onMounted(() => {
   flex-direction: column;
   gap: 12px;
 
-  height: 200px;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
   overflow-y: auto;
 
-  margin-bottom: 20px;
   padding-right: 4px;
 
   scrollbar-width: thin;
@@ -301,10 +307,12 @@ onMounted(() => {
 }
 
 .message-form {
-  padding-top: 16px;
-  border-top: 1px solid #2a2a2a;
-}
+  min-width: 0;
+  padding-left: 24px;
+  border-left: 1px solid #2a2a2a;
 
+  align-self: start;
+}
 .message-form label {
   display: block;
   margin-bottom: 12px;
@@ -465,6 +473,20 @@ onMounted(() => {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+@media (max-width: 700px) {
+  .message-widget {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    row-gap: 16px;
+  }
+
+  .message-form {
+    padding-left: 0;
+    padding-top: 16px;
+    border-left: 0;
+    border-top: 1px solid #2a2a2a;
   }
 }
 </style>
