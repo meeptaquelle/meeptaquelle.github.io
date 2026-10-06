@@ -49,6 +49,8 @@ const layers: WidgetNode[][] = [
   ],
 ]
 
+
+
 const centerNode: WidgetNode = {
   id: 'meep',
   label: 'Profile',
@@ -117,17 +119,25 @@ function dismissDragHint() {
 /* at most once per frame.                                             */
 /* ------------------------------------------------------------------ */
 
+const camera = {
+  x: 0,
+  y: 0,
+  zoom: 1,
+}
+
+const MIN_ZOOM = 0.5
+const MAX_ZOOM = 2.5
 const worldEl = ref<HTMLElement | null>(null)
 const isDragging = ref(false) // only toggles on drag start/end
 
-const camera = { x: 0, y: 0 }
 let applyFrame: number | null = null
 let flyFrame: number | null = null
 
 function applyCamera() {
   applyFrame = null
   if (worldEl.value) {
-    worldEl.value.style.transform = `translate3d(${camera.x}px, ${camera.y}px, 0)`
+    worldEl.value.style.transform =
+      `translate3d(${camera.x}px, ${camera.y}px, 0) scale(${camera.zoom})`
   }
 }
 
@@ -157,7 +167,8 @@ function flyTo(targetX: number, targetY: number) {
 
     camera.x = fromX + (targetX - fromX) * eased
     camera.y = fromY + (targetY - fromY) * eased
-    worldEl.value!.style.transform = `translate3d(${camera.x}px, ${camera.y}px, 0)`
+   worldEl.value!.style.transform =
+  `translate3d(${camera.x}px, ${camera.y}px, 0) scale(${camera.zoom})`
 
     flyFrame = progress < 1 ? requestAnimationFrame(step) : null
   }
@@ -168,43 +179,129 @@ function flyTo(targetX: number, targetY: number) {
 /* ------------------------------------------------------------------ */
 /* Dragging                                                            */
 /* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ */
+/* Dragging + Pinch                                                    */
+/* ------------------------------------------------------------------ */
 
+const pointers = new Map<number, { x: number; y: number }>()
+
+// Baselines for a single-pointer pan
 let lastX = 0
 let lastY = 0
-let activePointer: number | null = null
+
+// Baselines for a two-pointer pinch
+let prevDist = 0
+let prevMid = { x: 0, y: 0 }
+
+function viewportCenter() {
+  return { x: window.innerWidth / 2, y: window.innerHeight / 2 }
+}
+
+function clampZoom(z: number) {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
+}
 
 function startDrag(event: PointerEvent) {
   if (activeWindow.value) return
 
   stopFly()
-  activePointer = event.pointerId
-  lastX = event.clientX
-  lastY = event.clientY
+
+  const el = event.currentTarget as HTMLElement
+  el.setPointerCapture(event.pointerId)
+  pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+
+  if (pointers.size === 1) {
+    lastX = event.clientX
+    lastY = event.clientY
+  } else if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()]
+    prevDist = Math.hypot(a!.x - b!.x, a!.y - b!.y)
+    prevMid = { x: (a!.x + b!.x) / 2, y: (a!.y + b!.y) / 2 }
+  }
+
   isDragging.value = true
-  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
 }
 
 function drag(event: PointerEvent) {
-  if (!isDragging.value || event.pointerId !== activePointer) return
+  if (!pointers.has(event.pointerId)) return
+  pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
 
-  camera.x += event.clientX - lastX
-  camera.y += event.clientY - lastY
-  lastX = event.clientX
-  lastY = event.clientY
-  scheduleCamera()
+  /* --- one finger: pan ------------------------------------------- */
+  if (pointers.size === 1) {
+    camera.x += event.clientX - lastX
+    camera.y += event.clientY - lastY
+    lastX = event.clientX
+    lastY = event.clientY
+    scheduleCamera()
+    return
+  }
+
+  /* --- two fingers: pinch + pan ---------------------------------- */
+  if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()]
+    const dist = Math.hypot(a!.x - b!.x, a!.y - b!.y)
+    const mid = { x: (a!.x + b!.x) / 2, y: (a!.y + b!.y) / 2 }
+
+    if (prevDist > 0 && dist > 0) {
+      const newZoom = clampZoom(camera.zoom * (dist / prevDist))
+
+      // The world point that was under the previous midpoint
+      const c = viewportCenter()
+      const wx = (prevMid.x - c.x - camera.x) / camera.zoom
+      const wy = (prevMid.y - c.y - camera.y) / camera.zoom
+
+      camera.zoom = newZoom
+      // Re-place that same world point under the new midpoint
+      camera.x = mid.x - c.x - wx * camera.zoom
+      camera.y = mid.y - c.y - wy * camera.zoom
+
+      scheduleCamera()
+    }
+
+    prevDist = dist
+    prevMid = mid
+  }
 }
 
 function endDrag(event: PointerEvent) {
-  if (event.pointerId !== activePointer) return
-  activePointer = null
-  isDragging.value = false
+  if (!pointers.has(event.pointerId)) return
+  pointers.delete(event.pointerId)
 
   const el = event.currentTarget as HTMLElement
   if (el.hasPointerCapture(event.pointerId)) {
     el.releasePointerCapture(event.pointerId)
   }
-}
 
+  if (pointers.size === 1) {
+    // 2 → 1: re-baseline the pan to the surviving finger so it doesn't jump
+    const [remaining] = [...pointers.values()]
+    lastX = remaining!.x
+    lastY = remaining!.y
+  } else if (pointers.size === 0) {
+    isDragging.value = false
+    prevDist = 0
+  }
+}
+function handleWheel(event: WheelEvent) {
+  if (activeWindow.value) return   // let the modal scroll natively
+  event.preventDefault()           // only now do we own this event
+
+  stopFly()
+
+  const factor = Math.exp(-event.deltaY * 0.0015)
+  const newZoom = clampZoom(camera.zoom * factor)
+  if (newZoom === camera.zoom) return
+
+  const c = viewportCenter()
+  const wx = (event.clientX - c.x - camera.x) / camera.zoom
+  const wy = (event.clientY - c.y - camera.y) / camera.zoom
+
+  camera.zoom = newZoom
+  camera.x = event.clientX - c.x - wx * camera.zoom
+  camera.y = event.clientY - c.y - wy * camera.zoom
+
+  scheduleCamera()
+}
 /* ------------------------------------------------------------------ */
 /* Orbit                                                               */
 /*                                                                     */
@@ -239,9 +336,8 @@ function navigateToWidget(id: string) {
     const nodeIndex = layers[layerIndex]!.findIndex((n) => n.id === id)
     if (nodeIndex === -1) continue
 
-    const { x, y } = currentNodePosition(layerIndex, nodeIndex)
-    flyTo(-x, -y)
-    return
+  const { x, y } = currentNodePosition(layerIndex, nodeIndex)
+flyTo(-x * camera.zoom, -y * camera.zoom)
   }
 }
 
@@ -295,14 +391,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <main
-    class="canvas-viewport"
-    :class="{ dragging: isDragging }"
-    @pointerdown="startDrag"
-    @pointermove="drag"
-    @pointerup="endDrag"
-    @pointercancel="endDrag"
-  >
+<main
+  class="canvas-viewport"
+  @wheel="handleWheel"
+  @pointerdown="startDrag"
+  @pointermove="drag"
+  @pointerup="endDrag"
+  @pointercancel="endDrag"
+>
     <!-- Floating navigation (attached to viewport, not the world) -->
     <nav class="floating-nav" @pointerdown.stop @click.stop>
       <button
