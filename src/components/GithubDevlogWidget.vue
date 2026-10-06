@@ -209,20 +209,21 @@ onMounted(fetchDevlog)
 }
 
 .devlog-heading h2 {
-  margin: 10px;
+  margin: 15px;
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 .devlog-heading p {
-  margin: 10px;
+  margin: 15px;
   color: #777;
   font-size: 12px;
 }
 
 /* Small right-aligned stat so the header doesn't feel empty on wide screens. */
 .devlog-stat {
+  margin: 15px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
