@@ -135,7 +135,7 @@ const MAX_ZOOM = 2.5
 /* World-space half-extent of the navigable area. The outer node's edge
  * reaches 500 (ring radius) + 75 (node half) = 575 from origin; adding
  * ~325 of breathing room gives 900. Tweak to taste. */
-const WORLD_BOUND = 900
+const WORLD_BOUND = 600
 
 const worldEl = ref<HTMLElement | null>(null)
 const isDragging = ref(false) // only toggles on drag start/end
@@ -593,7 +593,7 @@ onUnmounted(() => {
 
   background: radial-gradient(
     circle,
-    rgba(0, 153, 255, 0.10),
+    rgba(0, 153, 255, 0.25),
     transparent 60%
   );
 
@@ -609,7 +609,7 @@ onUnmounted(() => {
 
   background: radial-gradient(
     circle,
-    rgba(91, 0, 161, 0.14),
+    rgba(91, 0, 161, 0.30),
     transparent 62%
   );
 
