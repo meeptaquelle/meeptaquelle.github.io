@@ -104,4 +104,65 @@ export const projects: Project[] = [
     tools: ['ESP32', 'PIR Sensor', 'Buzzer', 'Telegram Bot', 'Wokwi'],
     status: 'completed',
   },
+  {
+  id: 'unsupervised-anomaly-detection',
+  name: 'Unsupervised Anomaly Detection',
+  description:
+    'Unsupervised anomaly detection system using a noise-filtered and tail-aware memory bank approach, evaluated on the MVTec AD dataset.',
+  year: 2026,
+  category: 'machine-learning',
+  type: 'college',
+  link: 'https://github.com/meeptaquelle/anomaly-detection',
+  tools: ['Python', 'WideResNet-50', 'MVTec AD'],
+  status: 'completed',
+},
+
+{
+  id: 'oil-palm-ripeness',
+  name: 'Oil Palm Ripeness Classification',
+  description:
+    'Deep learning model for classifying oil palm fruit ripeness using MobileNetV2, with image preprocessing, data augmentation, and fine-tuning.',
+  year: 2025,
+  category: 'machine-learning',
+  type: 'college',
+  link: 'https://colab.research.google.com/drive/12o0jfPPrzWmsqp7-uWfl3dA5v5L0U1M4',
+  tools: [
+    'Python',
+    'TensorFlow',
+    'Keras',
+    'MobileNetV2',
+    'Scikit-learn',
+  ],
+  status: 'completed',
+},
+
+{
+  id: 'brain-tumor-detection',
+  name: 'Brain Tumor Detection using Otsu Thresholding',
+  description:
+    'Digital image processing pipeline for detecting and localizing potential brain tumor regions from MRI images using image enhancement, Otsu thresholding, and connected component analysis.',
+  year: 2023,
+  category: 'machine-learning',
+  type: 'college',
+  link: 'https://colab.research.google.com/drive/1nlSIeD9us6Y-93zjQYQp9oG25Z6yXOkB',
+  tools: [
+    'Python',
+    'OpenCV',
+    'NumPy',
+    'Matplotlib',
+    'scikit-image',
+  ],
+  status: 'completed',
+},
+  {
+    id: 'tracer-study',
+    name: 'Tracer Study Website',
+    description:
+      'Tracer study web application developed throughout the software development lifecycle, including requirements planning, system design, implementation, testing, and final presentation.',
+    year: 2025,
+    category: 'web',
+    type: 'college',
+    tools: ['Django', 'REST API'],
+    status: 'completed',
+  },
 ]
