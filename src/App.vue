@@ -166,10 +166,15 @@ function advanceOnboarding() {
 /* at most once per frame.                                             */
 /* ------------------------------------------------------------------ */
 
+const isCoarsePointer = typeof window !== 'undefined'
+  && window.matchMedia('(pointer: coarse)').matches
+
+const DEFAULT_ZOOM = isCoarsePointer ? 0.5 : 0.75
+
 const camera = {
   x: 0,
   y: 0,
-  zoom: 0.6,
+  zoom: DEFAULT_ZOOM,
 }
 
 const MIN_ZOOM = 0.5
