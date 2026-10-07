@@ -549,14 +549,14 @@ onUnmounted(() => {
 .canvas-viewport::before {
   top: -15vh;
   left: -10vw;
-  background: radial-gradient(ellipse, rgba(0, 153, 255, 0.08), transparent 60%);
+  background: radial-gradient(ellipse, rgba(0, 153, 255, 0.15), transparent 60%);
   animation: blue-breathe 14s ease-in-out infinite;
 }
 
 .canvas-viewport::after {
   right: -10vw;
   bottom: -15vh;
-  background: radial-gradient(ellipse, rgba(91, 0, 161, 0.13), transparent 60%);
+  background: radial-gradient(ellipse, rgba(91, 0, 161, 0.2), transparent 60%);
   animation: purple-breathe 18s ease-in-out infinite;
 }
 
