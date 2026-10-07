@@ -26,6 +26,7 @@ const StackWidget = defineAsyncComponent(() => import('./components/StackWidget.
 const ExperienceWidget = defineAsyncComponent(() => import('./components/ExperienceWidget.vue'))
 const GithubDevlogWidget = defineAsyncComponent(() => import('./components/GithubDevlogWidget.vue'))
 const PersonalityWidget = defineAsyncComponent(() => import('./components/PersonalityWidget.vue'))
+
 interface WidgetNode {
   id: string
   label: string
@@ -53,8 +54,6 @@ const layers: WidgetNode[][] = [
     { id: 'personality', label: 'Personality', description: 'Explore my O/C/E/A/N personality', icon: FeSmile, component: PersonalityWidget },
   ],
 ]
-
-
 
 const centerNode: WidgetNode = {
   id: 'meep',
@@ -132,6 +131,12 @@ const camera = {
 
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 2.5
+
+/* World-space half-extent of the navigable area. The outer node's edge
+ * reaches 500 (ring radius) + 75 (node half) = 575 from origin; adding
+ * ~325 of breathing room gives 900. Tweak to taste. */
+const WORLD_BOUND = 900
+
 const worldEl = ref<HTMLElement | null>(null)
 const isDragging = ref(false) // only toggles on drag start/end
 
@@ -160,6 +165,12 @@ function stopFly() {
 function flyTo(targetX: number, targetY: number) {
   stopFly()
 
+  // Clamp the destination the same way the interactive camera is clamped,
+  // so navigate-to-node can't push the origin outside the world box.
+  const limit = WORLD_BOUND * camera.zoom
+  const clampedX = Math.max(-limit, Math.min(limit, targetX))
+  const clampedY = Math.max(-limit, Math.min(limit, targetY))
+
   const fromX = camera.x
   const fromY = camera.y
   const startTime = performance.now()
@@ -170,10 +181,10 @@ function flyTo(targetX: number, targetY: number) {
     // ease in/out quad
     const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2
 
-    camera.x = fromX + (targetX - fromX) * eased
-    camera.y = fromY + (targetY - fromY) * eased
-   worldEl.value!.style.transform =
-  `translate3d(${camera.x}px, ${camera.y}px, 0) scale(${camera.zoom})`
+    camera.x = fromX + (clampedX - fromX) * eased
+    camera.y = fromY + (clampedY - fromY) * eased
+    worldEl.value!.style.transform =
+      `translate3d(${camera.x}px, ${camera.y}px, 0) scale(${camera.zoom})`
 
     flyFrame = progress < 1 ? requestAnimationFrame(step) : null
   }
@@ -181,9 +192,6 @@ function flyTo(targetX: number, targetY: number) {
   flyFrame = requestAnimationFrame(step)
 }
 
-/* ------------------------------------------------------------------ */
-/* Dragging                                                            */
-/* ------------------------------------------------------------------ */
 /* ------------------------------------------------------------------ */
 /* Dragging + Pinch                                                    */
 /* ------------------------------------------------------------------ */
@@ -204,6 +212,20 @@ function viewportCenter() {
 
 function clampZoom(z: number) {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
+}
+
+/* Clamp the camera so the world origin can't travel further than
+ * WORLD_BOUND (in world units) from the viewport center. Expressed in
+ * screen pixels at the current zoom, so the limit scales correctly when
+ * zooming in or out. */
+function clampCamera() {
+  const limit = WORLD_BOUND * camera.zoom
+
+  if (camera.x > limit) camera.x = limit
+  else if (camera.x < -limit) camera.x = -limit
+
+  if (camera.y > limit) camera.y = limit
+  else if (camera.y < -limit) camera.y = -limit
 }
 
 function startDrag(event: PointerEvent) {
@@ -237,6 +259,7 @@ function drag(event: PointerEvent) {
     camera.y += event.clientY - lastY
     lastX = event.clientX
     lastY = event.clientY
+    clampCamera()
     scheduleCamera()
     return
   }
@@ -260,6 +283,7 @@ function drag(event: PointerEvent) {
       camera.x = mid.x - c.x - wx * camera.zoom
       camera.y = mid.y - c.y - wy * camera.zoom
 
+      clampCamera()
       scheduleCamera()
     }
 
@@ -287,6 +311,7 @@ function endDrag(event: PointerEvent) {
     prevDist = 0
   }
 }
+
 function handleWheel(event: WheelEvent) {
   if (activeWindow.value) return   // let the modal scroll natively
   event.preventDefault()           // only now do we own this event
@@ -305,8 +330,10 @@ function handleWheel(event: WheelEvent) {
   camera.x = event.clientX - c.x - wx * camera.zoom
   camera.y = event.clientY - c.y - wy * camera.zoom
 
+  clampCamera()
   scheduleCamera()
 }
+
 /* ------------------------------------------------------------------ */
 /* Orbit                                                               */
 /*                                                                     */
@@ -341,8 +368,8 @@ function navigateToWidget(id: string) {
     const nodeIndex = layers[layerIndex]!.findIndex((n) => n.id === id)
     if (nodeIndex === -1) continue
 
-  const { x, y } = currentNodePosition(layerIndex, nodeIndex)
-flyTo(-x * camera.zoom, -y * camera.zoom)
+    const { x, y } = currentNodePosition(layerIndex, nodeIndex)
+    flyTo(-x * camera.zoom, -y * camera.zoom)
   }
 }
 
@@ -398,14 +425,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-<main
-  class="canvas-viewport"
-  @wheel="handleWheel"
-  @pointerdown="startDrag"
-  @pointermove="drag"
-  @pointerup="endDrag"
-  @pointercancel="endDrag"
->
+  <main
+    class="canvas-viewport"
+    @wheel="handleWheel"
+    @pointerdown="startDrag"
+    @pointermove="drag"
+    @pointerup="endDrag"
+    @pointercancel="endDrag"
+  >
     <!-- Floating navigation (attached to viewport, not the world) -->
     <nav class="floating-nav" @pointerdown.stop @click.stop>
       <button
@@ -434,6 +461,10 @@ onUnmounted(() => {
 
     <!-- WORLD: transform is written directly from JS (see applyCamera) -->
     <div ref="worldEl" class="canvas-world" @click="closeWindow">
+      <!-- Ambient world lighting — anchored to the world origin -->
+      <div class="world-glow world-glow-blue"></div>
+      <div class="world-glow world-glow-purple"></div>
+
       <!-- Orbit rings -->
       <div
         v-for="(_, layerIndex) in layers"
@@ -443,7 +474,7 @@ onUnmounted(() => {
           width: `${layerRadius(layerIndex) * 2}px`,
           height: `${layerRadius(layerIndex) * 2}px`,
         }"
-      />
+      ></div>
 
       <!--
         One rotating wrapper per ring (CSS animation, compositor-only).
@@ -520,7 +551,7 @@ onUnmounted(() => {
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: #050505;
+  background: #090909;
   cursor: grab;
   user-select: none;
   touch-action: none;
@@ -530,44 +561,69 @@ onUnmounted(() => {
   cursor: grabbing;
 }
 
+/* ---------------- World-attached glows ---------------- */
 /*
- * Ambient glows. No `filter: blur` — the radial gradients already fade
- * to transparent, and only transform/opacity animate, so these stay on
- * the compositor.
+ * Children of .canvas-world, so they inherit its transform and travel
+ * with the world. Anchored to the world origin (the center node) — when
+ * the camera pans, they pan with the scene rather than sitting flat on
+ * the viewport.
+ *
+ * Centering is done via the independent `translate` property, leaving
+ * `transform` free for the pulsing animation. They compose cleanly
+ * without re-writing the centering in every keyframe.
  */
-.canvas-viewport::before,
-.canvas-viewport::after {
-  content: '';
+.world-glow {
   position: absolute;
-  width: 80vw;
-  height: 100vh;
+  z-index: -1;
+
   border-radius: 50%;
   pointer-events: none;
+
+  translate: -50% -50%;
+
   will-change: transform, opacity;
 }
 
-.canvas-viewport::before {
-  top: -15vh;
-  left: -10vw;
-  background: radial-gradient(ellipse, rgba(0, 153, 255, 0.15), transparent 60%);
+.world-glow-blue {
+  left: -260px;
+  top: -240px;
+
+  width: 1200px;
+  height: 1200px;
+
+  background: radial-gradient(
+    circle,
+    rgba(0, 153, 255, 0.10),
+    transparent 60%
+  );
+
   animation: blue-breathe 14s ease-in-out infinite;
 }
 
-.canvas-viewport::after {
-  right: -10vw;
-  bottom: -15vh;
-  background: radial-gradient(ellipse, rgba(91, 0, 161, 0.2), transparent 60%);
+.world-glow-purple {
+  left: 240px;
+  top: 260px;
+
+  width: 1400px;
+  height: 1400px;
+
+  background: radial-gradient(
+    circle,
+    rgba(91, 0, 161, 0.14),
+    transparent 62%
+  );
+
   animation: purple-breathe 18s ease-in-out infinite;
 }
 
 @keyframes blue-breathe {
-  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.8; }
-  50% { transform: translate(8vw, 5vh) scale(1.15); opacity: 1; }
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50%      { transform: scale(1.12); opacity: 1; }
 }
 
 @keyframes purple-breathe {
-  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.8; }
-  50% { transform: translate(-7vw, -6vh) scale(1.18); opacity: 1; }
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50%      { transform: scale(1.15); opacity: 1; }
 }
 
 /* ---------------- Floating nav ---------------- */
@@ -881,8 +937,7 @@ onUnmounted(() => {
 @media (prefers-reduced-motion: reduce) {
   .orbit-spin,
   .orbit-upright,
-  .canvas-viewport::before,
-  .canvas-viewport::after,
+  .world-glow,
   .drag-hint-icon {
     animation: none;
   }
