@@ -94,22 +94,65 @@ const openWindow = (id: string) => (activeWindow.value = id)
 const closeWindow = () => (activeWindow.value = null)
 
 /* ------------------------------------------------------------------ */
-/* Drag hint                                                           */
+/* Onboarding overlay                                                  */
+/*                                                                     */
+/* Two-step full-screen overlay. Each step demonstrates one gesture    */
+/* using only CSS-animated geometric primitives (circles, rectangles,  */
+/* gradients). Click anywhere to advance or dismiss.                   */
 /* ------------------------------------------------------------------ */
 
-function readHintDismissed() {
+const ONBOARDING_KEY = 'canvas-onboarding-done'
+
+function readOnboardingDone(): boolean {
   try {
-    return sessionStorage.getItem('drag-hint-dismissed') === 'true'
+    return localStorage.getItem(ONBOARDING_KEY) === 'true'
   } catch {
     return false
   }
 }
-const showDragHint = ref(!readHintDismissed())
 
-function dismissDragHint() {
-  showDragHint.value = false
+const showOnboarding = ref(!readOnboardingDone())
+const onboardingStep = ref(0)
+const totalSteps = 2
+
+/* Coarse pointer = touch device. Detected once at module init — the
+ * onboarding is a one-shot, so no need to react to input device
+ * changes mid-session. */
+const isTouch = typeof window !== 'undefined'
+  && window.matchMedia('(pointer: coarse)').matches
+
+const stepContent = computed(() => {
+  if (onboardingStep.value === 0) {
+    return {
+      gesture: 'drag' as const,
+      title: 'Drag to explore',
+      subtitle: 'Click and drag anywhere to pan the canvas',
+    }
+  }
+  if (isTouch) {
+    return {
+      gesture: 'pinch' as const,
+      title: 'Pinch to zoom',
+      subtitle: 'Use two fingers to zoom in and out',
+    }
+  }
+  return {
+    gesture: 'scroll' as const,
+    title: 'Scroll to zoom',
+    subtitle: 'Use your mouse wheel or trackpad',
+  }
+})
+
+const isLastStep = computed(() => onboardingStep.value === totalSteps - 1)
+
+function advanceOnboarding() {
+  if (!isLastStep.value) {
+    onboardingStep.value++
+    return
+  }
+  showOnboarding.value = false
   try {
-    sessionStorage.setItem('drag-hint-dismissed', 'true')
+    localStorage.setItem(ONBOARDING_KEY, 'true')
   } catch {
     /* storage unavailable */
   }
@@ -126,7 +169,7 @@ function dismissDragHint() {
 const camera = {
   x: 0,
   y: 0,
-  zoom: 0.575,
+  zoom: 0.6,
 }
 
 const MIN_ZOOM = 0.5
@@ -230,6 +273,7 @@ function clampCamera() {
 
 function startDrag(event: PointerEvent) {
   if (activeWindow.value) return
+  if (showOnboarding.value) return
 
   stopFly()
 
@@ -313,8 +357,9 @@ function endDrag(event: PointerEvent) {
 }
 
 function handleWheel(event: WheelEvent) {
-  if (activeWindow.value) return   // let the modal scroll natively
-  event.preventDefault()           // only now do we own this event
+  if (activeWindow.value) return
+  if (showOnboarding.value) return
+  event.preventDefault()
 
   stopFly()
 
@@ -391,12 +436,20 @@ const navItems = [
 /* ------------------------------------------------------------------ */
 
 function handleKeydown(event: KeyboardEvent) {
+  // Onboarding captures Escape and Enter/Space to advance
+  if (showOnboarding.value) {
+    if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      advanceOnboarding()
+    }
+    return
+  }
+
   if (event.key === 'Escape') {
     closeWindow()
     return
   }
 
-  // Don't hijack "h" while typing (e.g. in the message widget).
   const target = event.target as HTMLElement | null
   if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
     return
@@ -445,19 +498,6 @@ onUnmounted(() => {
         {{ item.label }}
       </button>
     </nav>
-
-    <div
-      v-if="showDragHint"
-      class="drag-hint"
-      @click="dismissDragHint"
-      @pointerdown.stop="dismissDragHint"
-    >
-      <span class="drag-hint-icon">✥</span>
-      <div class="drag-hint-content">
-        <strong>Drag to explore</strong>
-        <span>Click and drag anywhere to move around</span>
-      </div>
-    </div>
 
     <!-- WORLD: transform is written directly from JS (see applyCamera) -->
     <div ref="worldEl" class="canvas-world" @click="closeWindow">
@@ -542,6 +582,78 @@ onUnmounted(() => {
     <WidgetWindow v-if="activeWindow && activeWidget" :title="windowTitle" @close="closeWindow">
       <component :is="activeWidget" />
     </WidgetWindow>
+
+    <!-- ---------------------------------------------------------------- -->
+    <!-- Onboarding overlay                                                -->
+    <!-- ---------------------------------------------------------------- -->
+    <Transition name="onboarding-fade">
+      <div
+        v-if="showOnboarding"
+        class="onboarding"
+        role="dialog"
+        aria-modal="true"
+        aria-label="How to use the canvas"
+        @pointerdown.stop
+        @click.stop="advanceOnboarding"
+      >
+        <div class="onboarding-stage">
+          <Transition name="onboarding-step" mode="out-in">
+            <div :key="onboardingStep" class="onboarding-content">
+
+              <!-- -------- Step 1: drag -------- -->
+              <div v-if="stepContent.gesture === 'drag'" class="gesture gesture-drag">
+                <span class="gesture-track"></span>
+                <span class="finger finger-trail finger-trail-3"></span>
+                <span class="finger finger-trail finger-trail-2"></span>
+                <span class="finger finger-trail finger-trail-1"></span>
+                <span class="finger"></span>
+              </div>
+
+              <!-- -------- Step 2a: pinch -------- -->
+              <div v-else-if="stepContent.gesture === 'pinch'" class="gesture gesture-pinch">
+                <span class="gesture-track"></span>
+                <span class="finger finger-pinch-a"></span>
+                <span class="finger finger-pinch-b"></span>
+              </div>
+
+              <!-- -------- Step 2b: scroll -------- -->
+              <div v-else class="gesture gesture-scroll">
+                <span class="scroll-mouse">
+                  <span class="scroll-wheel"></span>
+                </span>
+                <span class="scroll-chevrons">
+                  <span class="chev chev-up"></span>
+                  <span class="chev chev-down"></span>
+                </span>
+              </div>
+
+              <div class="onboarding-copy">
+                <h2 class="onboarding-title">{{ stepContent.title }}</h2>
+                <p class="onboarding-subtitle">{{ stepContent.subtitle }}</p>
+              </div>
+            </div>
+          </Transition>
+        </div>
+
+        <div class="onboarding-footer">
+          <div class="onboarding-dots" aria-hidden="true">
+            <span
+              v-for="i in totalSteps"
+              :key="i"
+              class="onboarding-dot"
+              :class="{
+                'is-active': onboardingStep === i - 1,
+                'is-done': onboardingStep > i - 1,
+              }"
+            />
+          </div>
+
+          <p class="onboarding-hint">
+            {{ isLastStep ? 'Tap anywhere to begin' : 'Tap anywhere to continue' }}
+          </p>
+        </div>
+      </div>
+    </Transition>
   </main>
 </template>
 
@@ -593,7 +705,7 @@ onUnmounted(() => {
 
   background: radial-gradient(
     circle,
-    rgba(0, 153, 255, 0.25),
+    rgba(0, 153, 255, 0.2),
     transparent 60%
   );
 
@@ -661,11 +773,6 @@ onUnmounted(() => {
 }
 
 /* ---------------- World ---------------- */
-/*
- * Centered with top/left 50% (instead of calc(50vw + ...)) so the only
- * thing JS ever changes is translate3d. will-change keeps it on its own
- * GPU layer, so panning doesn't repaint the children.
- */
 .canvas-world {
   position: absolute;
   top: 50%;
@@ -863,74 +970,360 @@ onUnmounted(() => {
   font-size: 11px;
 }
 
-/* ---------------- Drag hint ---------------- */
-.drag-hint {
+/* ================================================================== */
+/* Onboarding overlay                                                  */
+/* ================================================================== */
+
+.onboarding {
   position: fixed;
-  left: 50%;
-  bottom: 36px;
+  inset: 0;
+  z-index: 200;
+
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 14px;
-  padding: 14px 18px;
-  border: 1px solid #333;
-  border-radius: 12px;
-  background: rgba(14, 14, 14, 0.96);
-  transform: translateX(-50%);
+  justify-content: space-between;
+
+  padding: 48px 24px;
+
+  background: rgba(5, 5, 5, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+
   cursor: pointer;
-  z-index: 40;
-  animation: drag-hint-in 0.35s ease-out;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  user-select: none;
+  touch-action: none;
 }
 
-.drag-hint:hover {
-  transform: translateX(-50%) translateY(-3px) scale(1.02);
-  border-color: #555;
+/* Soft vignette so the edge of the screen feels dark, focused on the
+ * gesture in the middle. */
+.onboarding::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+
+  background: radial-gradient(
+    circle at center,
+    transparent 0%,
+    rgba(0, 0, 0, 0.4) 70%,
+    rgba(0, 0, 0, 0.7) 100%
+  );
+
+  pointer-events: none;
 }
 
-.drag-hint-icon {
+.onboarding-stage {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid #2d2d2d;
-  border-radius: 9px;
-  color: #aaa;
-  font-size: 18px;
-  animation: drag-hint-float 1.5s ease-in-out infinite;
+
+  width: 100%;
 }
 
-.drag-hint:hover .drag-hint-icon {
-  color: #b89b5e;
-  border-color: #4a4030;
-  animation: none;
-}
+.onboarding-content {
+  position: relative;
+  z-index: 1;
 
-.drag-hint-content {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  align-items: center;
+  gap: 44px;
 }
 
-.drag-hint-content strong {
-  color: #ddd;
-  font-size: 13px;
+.onboarding-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+
+  max-width: 340px;
+  text-align: center;
+}
+
+.onboarding-title {
+  margin: 0;
+
+  color: #fff;
+  font-size: 22px;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
-.drag-hint-content span {
-  color: #777;
+.onboarding-subtitle {
+  margin: 0;
+
+  color: #8a8a8a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* -------- Footer: dots + hint -------- */
+
+.onboarding-footer {
+  position: relative;
+  z-index: 1;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.onboarding-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.onboarding-dot {
+  width: 6px;
+  height: 6px;
+
+  border-radius: 50%;
+  background: #2f2f2f;
+
+  transition:
+    width 0.25s ease,
+    background 0.25s ease;
+}
+
+.onboarding-dot.is-done {
+  background: #555;
+}
+
+.onboarding-dot.is-active {
+  width: 18px;
+  border-radius: 999px;
+  background: #b89b5e;
+}
+
+.onboarding-hint {
+  margin: 0;
+
+  color: #666;
   font-size: 11px;
+  letter-spacing: 0.02em;
+
+  animation: onboarding-hint-pulse 2s ease-in-out infinite;
 }
 
-@keyframes drag-hint-in {
-  from { opacity: 0; transform: translate(-50%, 8px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
+@keyframes onboarding-hint-pulse {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
 }
 
-@keyframes drag-hint-float {
-  0%, 100% { transform: translateX(0); }
-  50% { transform: translateX(4px); }
+/* ================================================================== */
+/* Gesture stage — all geometric primitives, no assets                 */
+/* ================================================================== */
+
+.gesture {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 260px;
+  height: 180px;
+}
+
+/* Dashed track — subtle line that the finger travels along. */
+.gesture-track {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+
+  width: 200px;
+  height: 1px;
+  margin: -0.5px 0 0 -100px;
+
+  background-image: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(184, 155, 94, 0.35) 15%,
+    rgba(184, 155, 94, 0.35) 85%,
+    transparent 100%
+  );
+
+  transform: rotate(30deg);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+/* -------- Finger primitive -------- */
+
+/*
+ * Golden touch point: a filled circle with a soft inner highlight and
+ * three concentric halos rendered via box-shadow. Reused for drag
+ * (with trailing ghosts), pinch (two fingers), and could be reused
+ * anywhere else a touch indicator is needed.
+ */
+.finger {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55), transparent 45%),
+    radial-gradient(circle at center, #d4b56a, #a08348);
+
+  box-shadow:
+    0 0 22px rgba(184, 155, 94, 0.55),
+    0 0 0 6px rgba(184, 155, 94, 0.14),
+    0 0 0 14px rgba(184, 155, 94, 0.05);
+
+  will-change: transform, opacity;
+}
+
+/* -------- Drag demo -------- */
+
+.finger-trail {
+  /* Reduced and blurred to read as a motion streak. */
+  opacity: 0.4;
+  filter: blur(1.5px);
+  animation-fill-mode: backwards;
+}
+
+.finger-trail-1 { animation-delay: 0.10s; }
+.finger-trail-2 { animation-delay: 0.20s; opacity: 0.22; }
+.finger-trail-3 { animation-delay: 0.30s; opacity: 0.10; }
+
+.gesture-drag .finger {
+  animation: gesture-drag-move 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes gesture-drag-move {
+  0%, 12%   { transform: translate(-70px, -40px); }
+  50%, 62%  { transform: translate(70px, 40px); }
+  96%, 100% { transform: translate(-70px, -40px); }
+}
+
+/* -------- Pinch demo -------- */
+
+.gesture-pinch .gesture-track {
+  /* Track sits between the two fingers */
+  width: 160px;
+  margin-left: -80px;
+}
+
+.finger-pinch-a {
+  animation: gesture-pinch-a 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.finger-pinch-b {
+  animation: gesture-pinch-b 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes gesture-pinch-a {
+  0%, 15%   { transform: translate(-60px, -34px); }
+  42%, 58%  { transform: translate(-12px, -7px); }
+  85%, 100% { transform: translate(-60px, -34px); }
+}
+
+@keyframes gesture-pinch-b {
+  0%, 15%   { transform: translate(60px, 34px); }
+  42%, 58%  { transform: translate(12px, 7px); }
+  85%, 100% { transform: translate(60px, 34px); }
+}
+
+/* -------- Scroll demo -------- */
+
+.gesture-scroll {
+  flex-direction: column;
+  gap: 18px;
+}
+
+.scroll-mouse {
+  position: relative;
+
+  width: 40px;
+  height: 64px;
+
+  border: 2px solid rgba(184, 155, 94, 0.55);
+  border-radius: 20px;
+  background: rgba(184, 155, 94, 0.05);
+
+  box-shadow:
+    0 0 24px rgba(184, 155, 94, 0.15),
+    inset 0 0 12px rgba(184, 155, 94, 0.06);
+}
+
+.scroll-wheel {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+
+  width: 4px;
+  height: 12px;
+  margin-left: -2px;
+
+  border-radius: 2px;
+  background: #d4b56a;
+
+  box-shadow: 0 0 8px rgba(212, 181, 106, 0.9);
+
+  animation: scroll-wheel 1.8s ease-in-out infinite;
+}
+
+@keyframes scroll-wheel {
+  0%, 100% { transform: translateY(0);    opacity: 1; }
+  50%      { transform: translateY(14px); opacity: 0.55; }
+}
+
+.scroll-chevrons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+
+  opacity: 0.5;
+}
+
+.chev {
+  width: 10px;
+  height: 10px;
+
+  border-right: 2px solid #b89b5e;
+  border-bottom: 2px solid #b89b5e;
+}
+
+.chev-up   { transform: rotate(-135deg); }
+.chev-down { transform: rotate(45deg); }
+
+/* -------- Step transition -------- */
+
+.onboarding-fade-enter-active,
+.onboarding-fade-leave-active {
+  transition: opacity 0.35s ease;
+}
+
+.onboarding-fade-enter-from,
+.onboarding-fade-leave-to {
+  opacity: 0;
+}
+
+.onboarding-step-enter-active,
+.onboarding-step-leave-active {
+  transition:
+    opacity 0.28s ease,
+    transform 0.28s ease;
+}
+
+.onboarding-step-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.onboarding-step-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 
 /* ---------------- Reduced motion ---------------- */
@@ -938,13 +1331,33 @@ onUnmounted(() => {
   .orbit-spin,
   .orbit-upright,
   .world-glow,
-  .drag-hint-icon {
+  .onboarding-hint {
     animation: none;
   }
 
+  .gesture-drag .finger,
+  .finger-trail,
+  .finger-pinch-a,
+  .finger-pinch-b,
+  .scroll-wheel {
+    animation: none;
+  }
+
+  /* Static poses so the gesture is still readable */
+  .gesture-drag .finger       { transform: translate(0, 0); }
+  .finger-trail               { opacity: 0; }
+  .finger-pinch-a             { transform: translate(-40px, -23px); }
+  .finger-pinch-b             { transform: translate(40px, 23px); }
+  .scroll-wheel               { transform: translateY(7px); }
+
   .orbit-node,
   .meep-node,
-  .nav-item {
+  .nav-item,
+  .onboarding-dot,
+  .onboarding-fade-enter-active,
+  .onboarding-fade-leave-active,
+  .onboarding-step-enter-active,
+  .onboarding-step-leave-active {
     transition: none;
   }
 }
@@ -962,6 +1375,18 @@ onUnmounted(() => {
 
   .nav-item {
     flex-shrink: 0;
+  }
+
+  .onboarding {
+    padding: 40px 20px;
+  }
+
+  .onboarding-title {
+    font-size: 19px;
+  }
+
+  .onboarding-subtitle {
+    font-size: 12px;
   }
 }
 </style>
