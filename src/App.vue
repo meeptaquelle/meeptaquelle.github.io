@@ -12,6 +12,7 @@ import {
   FeUser,
   FeActivity,
   FeRewind,
+  FeSmile,
 } from '@kalimahapps/vue-icons/fe'
 import WidgetWindow from './components/WidgetWindow.vue'
 
@@ -24,6 +25,7 @@ const ProjectWidget = defineAsyncComponent(() => import('./components/ProjectWid
 const StackWidget = defineAsyncComponent(() => import('./components/StackWidget.vue'))
 const ExperienceWidget = defineAsyncComponent(() => import('./components/ExperienceWidget.vue'))
 const GithubDevlogWidget = defineAsyncComponent(() => import('./components/GithubDevlogWidget.vue'))
+const PersonalityWidget = defineAsyncComponent(() => import('./components/PersonalityWidget.vue'))
 interface WidgetNode {
   id: string
   label: string
@@ -48,7 +50,7 @@ const layers: WidgetNode[][] = [
     { id: 'tracks', label: 'Top Tracks', description: 'What I listen to', icon: FeMusic, component: SpotifyWidget },
     { id: 'artists', label: 'Top Artists', description: 'Artists on repeat', icon: FeUsers, component: SpotifyArtistWidget },
     { id: 'devlog', label: 'Devlog', description: 'Track this site development ', icon: FeRewind, component: GithubDevlogWidget },
-
+    { id: 'personality', label: 'Personality', description: 'Explore my O/C/E/A/N personality', icon: FeSmile, component: PersonalityWidget },
   ],
 ]
 
@@ -354,6 +356,7 @@ const navItems = [
   { id: 'artists', label: 'Artists' },
   { id: 'messages', label: 'Messages' },
   { id: 'devlog', label: 'Devlog' },
+  { id: 'personality', label: 'Personality' },
 ]
 
 /* ------------------------------------------------------------------ */
