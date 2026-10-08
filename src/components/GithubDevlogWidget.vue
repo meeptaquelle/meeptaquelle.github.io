@@ -25,6 +25,92 @@ const totalCommits = computed(
   () => frontendCommits.value.length + backendCommits.value.length,
 )
 
+/* ------------------------------------------------------------------ */
+/* "How this site works" — static architecture summary                 */
+/* ------------------------------------------------------------------ */
+
+interface TechChip {
+  id: string
+  name: string
+}
+
+interface ArchitectureEntry {
+  id: string
+  label: string
+  value: string
+  /** Optional external link — the value becomes clickable. */
+  link?: string
+  /** Optional sub-line, shown under the value. */
+  note?: string
+}
+
+interface ArchitectureGroup {
+  id: string
+  label: string
+  entries: ArchitectureEntry[]
+}
+
+const coreTech: TechChip[] = [
+  { id: 'vue', name: 'Vue.js' },
+  { id: 'typescript', name: 'TypeScript' },
+  { id: 'go', name: 'Go' },
+]
+
+const architectureGroups: ArchitectureGroup[] = [
+  {
+    id: 'hosting',
+    label: 'Hosting',
+    entries: [
+      {
+        id: 'frontend-hosting',
+        label: 'Frontend',
+        value: 'GitHub Pages · gh-pages',
+      },
+      {
+        id: 'backend-hosting',
+        label: 'Backend',
+        value: 'Vercel',
+      },
+    ],
+  },
+  {
+    id: 'services',
+    label: 'External services',
+    entries: [
+      {
+        id: 'spotify',
+        label: 'Spotify tracks & artists',
+        value: 'Spotify Web API',
+        link: 'https://developer.spotify.com/',
+      },
+      {
+        id: 'github-profile',
+        label: 'GitHub profile & repos',
+        value: 'GitHub REST API',
+        link: 'https://docs.github.com/en/rest',
+      },
+      {
+        id: 'github-contribs',
+        label: 'Contribution graph',
+        value: 'github-contributions-api',
+        link: 'https://github.com/grubersjoe/github-contributions-api',
+      },
+      {
+        id: 'messages',
+        label: 'Anonymous messages',
+        value: 'Google Sheets (DB) · Cloud Console (API)',
+        note: 'Vercel proxies requests — it does not host the data.',
+      },
+    ],
+  },
+]
+
+const architectureOpen = ref(false)
+
+/* ------------------------------------------------------------------ */
+/* Devlog fetch + helpers                                              */
+/* ------------------------------------------------------------------ */
+
 const fetchDevlog = async () => {
   loading.value = true
   error.value = false
@@ -87,6 +173,105 @@ onMounted(fetchDevlog)
       </div>
     </header>
 
+    <!-- ---------------------------------------------------------------- -->
+    <!-- How this site works — collapsible                                  -->
+    <!-- ---------------------------------------------------------------- -->
+    <section
+      class="architecture"
+      :class="{ 'is-open': architectureOpen }"
+    >
+      <button
+        type="button"
+        class="architecture-toggle"
+        :aria-expanded="architectureOpen"
+        aria-controls="architecture-panel"
+        @click="architectureOpen = !architectureOpen"
+      >
+        <span class="architecture-toggle-chevron" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </span>
+
+        <span class="architecture-toggle-content">
+          <strong>How this site works</strong>
+          <span>Stack, hosting, and external services</span>
+        </span>
+      </button>
+
+      <Transition name="expand">
+        <div
+          v-if="architectureOpen"
+          id="architecture-panel"
+          class="architecture-panel"
+        >
+          <!-- Core tech: chips -->
+          <div class="architecture-group">
+            <p class="architecture-group-label">Core tech</p>
+
+            <div class="tech-chips">
+              <span
+                v-for="tech in coreTech"
+                :key="tech.id"
+                class="tech-chip"
+              >
+                {{ tech.name }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Groups: hosting, external services -->
+          <div
+            v-for="group in architectureGroups"
+            :key="group.id"
+            class="architecture-group"
+          >
+            <p class="architecture-group-label">{{ group.label }}</p>
+
+            <ul class="architecture-list">
+              <li
+                v-for="entry in group.entries"
+                :key="entry.id"
+                class="architecture-entry"
+              >
+                <span class="architecture-entry-label">
+                  {{ entry.label }}
+                </span>
+
+                <span class="architecture-entry-value">
+                  <a
+                    v-if="entry.link"
+                    :href="entry.link"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="architecture-link"
+                  >
+                    {{ entry.value }}
+                    <span class="architecture-link-icon" aria-hidden="true">↗</span>
+                  </a>
+                  <template v-else>{{ entry.value }}</template>
+                </span>
+
+                <span v-if="entry.note" class="architecture-entry-note">
+                  {{ entry.note }}
+                </span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </Transition>
+    </section>
+
+    <!-- ---------------------------------------------------------------- -->
+    <!-- Commit history                                                     -->
+    <!-- ---------------------------------------------------------------- -->
     <div v-if="loading" class="devlog-loading">
       Loading commits...
     </div>
@@ -205,7 +390,6 @@ onMounted(fetchDevlog)
   justify-content: space-between;
   gap: 16px;
   padding-bottom: 18px;
-
 }
 
 .devlog-heading h2 {
@@ -244,6 +428,226 @@ onMounted(fetchDevlog)
   font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------ */
+/* Architecture section                                                */
+/* ------------------------------------------------------------------ */
+
+.architecture {
+  border-top: 1px solid var(--devlog-border);
+  background: rgba(255, 255, 255, 0.008);
+}
+
+.architecture-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+  padding: 14px 16px;
+
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+
+  cursor: pointer;
+
+  transition: background 0.15s ease;
+}
+
+.architecture-toggle:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.architecture-toggle:focus-visible {
+  outline: 2px solid rgba(184, 155, 94, 0.55);
+  outline-offset: -3px;
+}
+
+.architecture-toggle-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+
+  color: #666;
+
+  transition:
+    transform 0.2s ease,
+    color 0.2s ease;
+}
+
+.architecture-toggle-chevron svg {
+  width: 14px;
+  height: 14px;
+}
+
+.architecture.is-open .architecture-toggle-chevron {
+  transform: rotate(90deg);
+  color: #b89b5e;
+}
+
+.architecture-toggle-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.architecture-toggle-content strong {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.architecture-toggle-content > span {
+  color: #777;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+/* -------- Panel -------- */
+
+.architecture-panel {
+  padding: 0 16px 18px;
+}
+
+.architecture-group {
+  margin-top: 16px;
+}
+
+.architecture-group:first-child {
+  margin-top: 6px;
+}
+
+.architecture-group-label {
+  margin: 0 0 10px;
+
+  color: #666;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* -------- Core tech chips -------- */
+
+.tech-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tech-chip {
+  display: inline-flex;
+  align-items: center;
+
+  padding: 5px 11px;
+
+  border: 1px solid rgba(184, 155, 94, 0.28);
+  border-radius: 6px;
+  background: rgba(184, 155, 94, 0.07);
+
+  color: #d4b56a;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  line-height: 1.2;
+}
+
+/* -------- Entry list -------- */
+
+.architecture-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.architecture-entry {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  column-gap: 16px;
+  row-gap: 3px;
+
+  padding: 10px 0;
+
+  border-bottom: 1px solid var(--devlog-border);
+}
+
+.architecture-entry:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.architecture-entry-label {
+  align-self: start;
+  padding-top: 2px;
+
+  color: #888;
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}
+
+.architecture-entry-value {
+  min-width: 0;
+
+  color: #ddd;
+  font-size: 12px;
+  line-height: 1.45;
+
+  overflow-wrap: break-word;
+}
+
+.architecture-link {
+  color: #6b9bd4;
+  text-decoration: none;
+
+  transition: color 0.15s ease;
+}
+
+.architecture-link:hover {
+  color: #8bb6e6;
+  text-decoration: underline;
+}
+
+.architecture-link-icon {
+  display: inline-block;
+  margin-left: 3px;
+
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+.architecture-entry-note {
+  grid-column: 2;
+
+  color: #666;
+  font-size: 10.5px;
+  font-style: italic;
+  line-height: 1.45;
+}
+
+/* -------- Expand transition -------- */
+
+.expand-enter-active,
+.expand-leave-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.expand-enter-from,
+.expand-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 
 /* ------------------------------------------------------------------ */
@@ -558,6 +962,20 @@ onMounted(fetchDevlog)
   .devlog-stat {
     display: none;
   }
+
+  /* Architecture entries stack: label on top, value below, note below. */
+  .architecture-entry {
+    grid-template-columns: 1fr;
+    row-gap: 3px;
+  }
+
+  .architecture-entry-note {
+    grid-column: 1;
+  }
+
+  .architecture-toggle-content > span {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -566,11 +984,20 @@ onMounted(fetchDevlog)
     opacity: 0.6;
   }
 
+  .architecture-toggle-chevron,
+  .architecture-toggle,
   .commit,
   .commit-dot,
   .commit-message,
-  .commit-sha {
+  .commit-sha,
+  .expand-enter-active,
+  .expand-leave-active {
     transition: none;
+  }
+
+  .expand-enter-from,
+  .expand-leave-to {
+    transform: none;
   }
 }
 </style>
