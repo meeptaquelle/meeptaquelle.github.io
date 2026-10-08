@@ -2,7 +2,7 @@ export type ExperienceType =
   | 'work'
   | 'education'
   | 'organization'
-  | 'committee'
+  | 'commitee'
   | 'activity'
 
 export type ExperienceStatus =
@@ -26,7 +26,7 @@ export const types = [
   { value: 'work', label: 'Work' },
   { value: 'education', label: 'Education' },
   { value: 'organization', label: 'Organization' },
-  { value: 'committee', label: 'Committee' },
+  { value: 'commitee', label: 'Committee' },
   { value: 'activity', label: 'Activity' },
 ] as const
 export const experiences: Experience[] = [
@@ -125,7 +125,7 @@ export const experiences: Experience[] = [
 
   {
     id: 'hmif-magang',
-    title: 'Staff — Human Resources Development',
+    title: 'Intern Staff — Human Resources Development',
     organization: 'Himpunan Mahasiswa Informatika — Institut Teknologi Kalimantan',
     description: 'Staff magang in the Human Resources Development division.',
     startYear: 2021,
@@ -182,4 +182,44 @@ export const experiences: Experience[] = [
     startYear: 2026,
     type: 'work',
   },
+    {
+    id: 'assistant',
+    title: 'Assistant Lecturer',
+    organization: 'Institut Teknologi Kalimantan',
+    description: 'Delivered weekly practical and laboratory sessions on Database Management for 12 weeks.',
+    startYear: 2024,
+    type: 'activity',
+  },
+  {
+  id: 'mts-start',
+  title: 'MTs Start',
+  organization: 'MTs PPMI Assalaam',
+  description: 'Contributed to the annual sporting event for MTs students.',
+  startYear: 2017,
+  type: 'commitee',
+},
+{
+  id: 'posa-xxxi',
+  title: 'POSA XXXI',
+  organization: 'PPMI Assalaam',
+  description: 'Contributed to the graphic design department and served as a digital operator throughout the annual sporting event for boarding school students.',
+  startYear: 2018,
+  type: 'commitee',
+},
+{
+  id: 'mahakarsa-633',
+  title: 'Mahakarsa 633',
+  organization: 'PPMI Assalaam',
+  description: 'Contributed to the documentation team and occasionally assisted the bazaar team during the annual art performance event.',
+  startYear: 2019,
+  type: 'commitee',
+},
+{
+  id: 'ios-plus',
+  title: 'IOS+',
+  organization: 'Institut Teknologi Kalimantan',
+  description: 'Contributed to the public relations team for an online webinar and project expo.',
+  startYear: 2021,
+  type: 'commitee',
+},
 ]
