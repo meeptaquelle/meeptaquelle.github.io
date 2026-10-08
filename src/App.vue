@@ -71,6 +71,36 @@ const layerDirection = (layerIndex: number) => (layerIndex % 2 === 0 ? 1 : -1)
 const baseAngle = (layerIndex: number, nodeIndex: number) =>
   -90 + layerIndex * ROTATION_PER_LAYER + nodeIndex * (360 / layers[layerIndex]!.length)
 
+const layerLabels = [
+  '· developer profile ·',
+  '· trivial stuff ·',
+]
+
+/* Which layer is currently being hovered. Null = none. */
+const hoveredLayer = ref<number | null>(null)
+
+const LABEL_INSET = 95
+
+const layerLabelGeometry = layers.map((_, i) => {
+  const R = layerRadius(i)
+  const labelR = R - LABEL_INSET
+  const size = (R + 160) * 2 // viewBox square, with margin
+  const c = size / 2
+
+  const a1 = (200 * Math.PI) / 180
+  const a2 = (340 * Math.PI) / 180
+  const x1 = c + labelR * Math.cos(a1)
+  const y1 = c + labelR * Math.sin(a1)
+  const x2 = c + labelR * Math.cos(a2)
+  const y2 = c + labelR * Math.sin(a2)
+
+  return {
+    size,
+    path: `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${labelR} ${labelR} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`,
+  }
+}
+)
+
 /* ------------------------------------------------------------------ */
 /* Active window                                                       */
 /* ------------------------------------------------------------------ */
@@ -95,10 +125,6 @@ const closeWindow = () => (activeWindow.value = null)
 
 /* ------------------------------------------------------------------ */
 /* Onboarding overlay                                                  */
-/*                                                                     */
-/* Two-step full-screen overlay. Each step demonstrates one gesture    */
-/* using only CSS-animated geometric primitives (circles, rectangles,  */
-/* gradients). Click anywhere to advance or dismiss.                   */
 /* ------------------------------------------------------------------ */
 
 const ONBOARDING_KEY = 'canvas-onboarding-done'
@@ -115,9 +141,6 @@ const showOnboarding = ref(!readOnboardingDone())
 const onboardingStep = ref(0)
 const totalSteps = 2
 
-/* Coarse pointer = touch device. Detected once at module init — the
- * onboarding is a one-shot, so no need to react to input device
- * changes mid-session. */
 const isTouch = typeof window !== 'undefined'
   && window.matchMedia('(pointer: coarse)').matches
 
@@ -160,10 +183,6 @@ function advanceOnboarding() {
 
 /* ------------------------------------------------------------------ */
 /* Camera                                                              */
-/*                                                                     */
-/* The camera is a plain object, NOT reactive. Vue never re-renders    */
-/* for camera movement; we write the transform straight to the DOM,    */
-/* at most once per frame.                                             */
 /* ------------------------------------------------------------------ */
 
 const isCoarsePointer = typeof window !== 'undefined'
@@ -180,13 +199,10 @@ const camera = {
 const MIN_ZOOM = 0.3
 const MAX_ZOOM = 2.5
 
-/* World-space half-extent of the navigable area. The outer node's edge
- * reaches 500 (ring radius) + 75 (node half) = 575 from origin; adding
- * ~325 of breathing room gives 900. Tweak to taste. */
 const WORLD_BOUND = 600
 
 const worldEl = ref<HTMLElement | null>(null)
-const isDragging = ref(false) // only toggles on drag start/end
+const isDragging = ref(false)
 
 let applyFrame: number | null = null
 let flyFrame: number | null = null
@@ -213,9 +229,6 @@ function stopFly() {
 function flyTo(targetX: number, targetY: number, targetZoom?: number) {
   stopFly()
 
-  // If a target zoom was given, resolve it once and clamp against the
-  // final zoom (not the current one) so the boundary check matches where
-  // the camera will actually land.
   const finalZoom = targetZoom !== undefined ? clampZoom(targetZoom) : camera.zoom
   const limit = WORLD_BOUND * finalZoom
   const clampedX = Math.max(-limit, Math.min(limit, targetX))
@@ -229,7 +242,6 @@ function flyTo(targetX: number, targetY: number, targetZoom?: number) {
 
   function step(now: number) {
     const progress = Math.min((now - startTime) / duration, 1)
-    // ease in/out quad
     const eased = progress < 0.5
       ? 2 * progress * progress
       : 1 - Math.pow(-2 * progress + 2, 2) / 2
@@ -256,11 +268,9 @@ function flyTo(targetX: number, targetY: number, targetZoom?: number) {
 
 const pointers = new Map<number, { x: number; y: number }>()
 
-// Baselines for a single-pointer pan
 let lastX = 0
 let lastY = 0
 
-// Baselines for a two-pointer pinch
 let prevDist = 0
 let prevMid = { x: 0, y: 0 }
 
@@ -272,10 +282,6 @@ function clampZoom(z: number) {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
 }
 
-/* Clamp the camera so the world origin can't travel further than
- * WORLD_BOUND (in world units) from the viewport center. Expressed in
- * screen pixels at the current zoom, so the limit scales correctly when
- * zooming in or out. */
 function clampCamera() {
   const limit = WORLD_BOUND * camera.zoom
 
@@ -312,7 +318,6 @@ function drag(event: PointerEvent) {
   if (!pointers.has(event.pointerId)) return
   pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
 
-  /* --- one finger: pan ------------------------------------------- */
   if (pointers.size === 1) {
     camera.x += event.clientX - lastX
     camera.y += event.clientY - lastY
@@ -323,7 +328,6 @@ function drag(event: PointerEvent) {
     return
   }
 
-  /* --- two fingers: pinch + pan ---------------------------------- */
   if (pointers.size === 2) {
     const [a, b] = [...pointers.values()]
     const dist = Math.hypot(a!.x - b!.x, a!.y - b!.y)
@@ -332,13 +336,11 @@ function drag(event: PointerEvent) {
     if (prevDist > 0 && dist > 0) {
       const newZoom = clampZoom(camera.zoom * (dist / prevDist))
 
-      // The world point that was under the previous midpoint
       const c = viewportCenter()
       const wx = (prevMid.x - c.x - camera.x) / camera.zoom
       const wy = (prevMid.y - c.y - camera.y) / camera.zoom
 
       camera.zoom = newZoom
-      // Re-place that same world point under the new midpoint
       camera.x = mid.x - c.x - wx * camera.zoom
       camera.y = mid.y - c.y - wy * camera.zoom
 
@@ -361,7 +363,6 @@ function endDrag(event: PointerEvent) {
   }
 
   if (pointers.size === 1) {
-    // 2 → 1: re-baseline the pan to the surviving finger so it doesn't jump
     const [remaining] = [...pointers.values()]
     lastX = remaining!.x
     lastY = remaining!.y
@@ -395,10 +396,44 @@ function handleWheel(event: WheelEvent) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Orbit                                                               */
+/* Ring interior detection                                             */
 /*                                                                     */
-/* The rotation itself is a pure CSS animation (compositor only).      */
-/* JS only computes the current angle once, when the user navigates.   */
+/* Runs on every pointermove (except while dragging or with a widget   */
+/* open). Converts the cursor to world coordinates, measures distance  */
+/* from the origin, and picks the innermost ring that encloses the     */
+/* point. That ring — and only that ring — glows.                      */
+/* ------------------------------------------------------------------ */
+
+function updateHoveredRing(event: PointerEvent) {
+  if (isDragging.value) return
+  if (activeWindow.value) return
+  if (showOnboarding.value) return
+
+  const c = viewportCenter()
+  const wx = (event.clientX - c.x - camera.x) / camera.zoom
+  const wy = (event.clientY - c.y - camera.y) / camera.zoom
+  const r = Math.hypot(wx, wy)
+
+  // Innermost enclosing ring. Loop from smallest radius upward so the
+  // first match wins.
+  let layer: number | null = null
+  for (let i = 0; i < layers.length; i++) {
+    if (r <= layerRadius(i)) {
+      layer = i
+      break
+    }
+  }
+
+  hoveredLayer.value = layer
+}
+
+function onPointerMove(event: PointerEvent) {
+  drag(event)
+  updateHoveredRing(event)
+}
+
+/* ------------------------------------------------------------------ */
+/* Orbit                                                               */
 /* ------------------------------------------------------------------ */
 
 let orbitStartTime = 0
@@ -418,18 +453,12 @@ function currentNodePosition(layerIndex: number, nodeIndex: number) {
 /* Navigation                                                          */
 /* ------------------------------------------------------------------ */
 
-/* When the user is zoomed out past this, navigating snaps them in to
- * ZOOM_IN_TARGET so the focused node is readable. Below the threshold
- * the node card is too small to read its title comfortably. */
 const ZOOM_IN_THRESHOLD = 0.6
 const ZOOM_OUT_THRESHOLD = 1.3
 const ZOOM_TARGET = 1.25
 
 function navigateToWidget(id: string) {
-  // Snap into the comfort band from either side:
-  //   below 0.6  → zoom in to 1.25
-  //   above 1.3  → zoom back to 1.25
-  //   in between → leave alone
+  closeNavGroup()
   let targetZoom = camera.zoom
 
   if (camera.zoom < ZOOM_IN_THRESHOLD) {
@@ -453,25 +482,88 @@ function navigateToWidget(id: string) {
   }
 }
 
-const navItems = [
-  { id: 'meep', label: 'Home' },
-  { id: 'experience', label: 'Experience' },
-  { id: 'projects', label: 'Projects' },
-  { id: 'stack', label: 'Stack' },
-  { id: 'github', label: 'GitHub' },
-  { id: 'tracks', label: 'Tracks' },
-  { id: 'artists', label: 'Artists' },
-  { id: 'messages', label: 'Messages' },
-  { id: 'devlog', label: 'Devlog' },
-  { id: 'personality', label: 'Personality' },
+/* ------------------------------------------------------------------ */
+/* Navigation groups                                                   */
+/*                                                                     */
+/* Home is standalone (it's a reset, not a category). The other items  */
+/* are split into three groups that mirror how the widgets cluster by  */
+/* intent: things about the work, things about the person, and extras. */
+/* ------------------------------------------------------------------ */
+
+interface NavItem {
+  id: string
+  label: string
+}
+
+interface NavGroup {
+  id: 'dev' | 'personal' | 'extras'
+  label: string
+  items: NavItem[]
+}
+
+const navGroups: NavGroup[] = [
+  {
+    id: 'dev',
+    label: 'Dev',
+    items: [
+      { id: 'projects', label: 'Projects' },
+      { id: 'stack', label: 'Stack' },
+      { id: 'github', label: 'GitHub' },
+      { id: 'devlog', label: 'Devlog' },
+    ],
+  },
+  {
+    id: 'personal',
+    label: 'Personal',
+    items: [
+      { id: 'experience', label: 'Experience' },
+      { id: 'personality', label: 'Personality' },
+    ],
+  },
+  {
+    id: 'extras',
+    label: 'Extras',
+    items: [
+      { id: 'tracks', label: 'Tracks' },
+      { id: 'artists', label: 'Artists' },
+      { id: 'messages', label: 'Messages' },
+    ],
+  },
 ]
+
+/* Which dropdown panel is open. Null = all closed. */
+const openNavGroup = ref<NavGroup['id'] | null>(null)
+
+function toggleNavGroup(id: NavGroup['id']) {
+  openNavGroup.value = openNavGroup.value === id ? null : id
+}
+
+function closeNavGroup() {
+  openNavGroup.value = null
+}
+
+/* Returns the group a widget id belongs to, or null if it's home/unknown.
+ * Used to highlight the trigger when one of its widgets is open. */
+function groupForWidget(widgetId: string | null): NavGroup['id'] | null {
+  if (!widgetId) return null
+  for (const group of navGroups) {
+    if (group.items.some((item) => item.id === widgetId)) return group.id
+  }
+  return null
+}
+
+/* Click-outside handler for the dropdowns. Bound to a full-screen
+ * backdrop that's rendered only while a panel is open — cheap and
+ * doesn't need a document-level listener. */
+function onNavBackdropClick() {
+  closeNavGroup()
+}
 
 /* ------------------------------------------------------------------ */
 /* Keyboard                                                            */
 /* ------------------------------------------------------------------ */
 
 function handleKeydown(event: KeyboardEvent) {
-  // Onboarding captures Escape and Enter/Space to advance
   if (showOnboarding.value) {
     if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
@@ -479,8 +571,11 @@ function handleKeydown(event: KeyboardEvent) {
     }
     return
   }
-
   if (event.key === 'Escape') {
+      if (openNavGroup.value) {
+    closeNavGroup()
+    return
+  }
     closeWindow()
     return
   }
@@ -517,22 +612,82 @@ onUnmounted(() => {
     class="canvas-viewport"
     @wheel="handleWheel"
     @pointerdown="startDrag"
-    @pointermove="drag"
+    @pointermove="onPointerMove"
     @pointerup="endDrag"
     @pointercancel="endDrag"
+    @pointerleave="hoveredLayer = null"
   >
     <!-- Floating navigation (attached to viewport, not the world) -->
-    <nav class="floating-nav" @pointerdown.stop @click.stop>
-      <button
-        v-for="item in navItems"
-        :key="item.id"
-        type="button"
-        class="nav-item"
-        @click="navigateToWidget(item.id)"
+<!-- Floating navigation (attached to viewport, not the world) -->
+<nav class="floating-nav" @pointerdown.stop @pointermove.stop @click.stop>
+  <button
+    type="button"
+    class="nav-item nav-item--home"
+    :class="{ 'is-active': activeWindow === 'meep' }"
+    @click="navigateToWidget('meep')"
+  >
+    Home
+  </button>
+
+  <span class="nav-divider" aria-hidden="true" />
+
+  <div
+    v-for="group in navGroups"
+    :key="group.id"
+    class="nav-group"
+    :class="{
+      'is-open': openNavGroup === group.id,
+      'is-active': groupForWidget(activeWindow) === group.id,
+    }"
+  >
+    <button
+      type="button"
+      class="nav-item nav-item--trigger"
+      :aria-expanded="openNavGroup === group.id"
+      :aria-controls="`nav-panel-${group.id}`"
+      @click="toggleNavGroup(group.id)"
+    >
+      {{ group.label }}
+      <span class="nav-chevron" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </span>
+    </button>
+
+    <Transition name="nav-panel">
+      <div
+        v-if="openNavGroup === group.id"
+        :id="`nav-panel-${group.id}`"
+        class="nav-panel"
       >
-        {{ item.label }}
-      </button>
-    </nav>
+        <button
+          v-for="item in group.items"
+          :key="item.id"
+          type="button"
+          class="nav-panel-item"
+          :class="{ 'is-active': activeWindow === item.id }"
+          @click="navigateToWidget(item.id)"
+        >
+          {{ item.label }}
+        </button>
+      </div>
+    </Transition>
+  </div>
+</nav>
+
+<!-- Click-away backdrop for open nav panels. Rendered only while a
+ * panel is open so it doesn't sit on top of everything the rest of
+ * the time. -->
+<Transition name="nav-backdrop">
+  <div
+    v-if="openNavGroup"
+    class="nav-backdrop"
+    @click="onNavBackdropClick"
+    @pointerdown.stop
+    @wheel.stop
+  />
+</Transition>
 
     <!-- WORLD: transform is written directly from JS (see applyCamera) -->
     <div ref="worldEl" class="canvas-world" @click="closeWindow">
@@ -545,11 +700,33 @@ onUnmounted(() => {
         v-for="(_, layerIndex) in layers"
         :key="`ring-${layerIndex}`"
         class="orbit-ring"
+        :class="{ 'is-hot': hoveredLayer === layerIndex }"
         :style="{
           width: `${layerRadius(layerIndex) * 2}px`,
           height: `${layerRadius(layerIndex) * 2}px`,
         }"
       ></div>
+
+      <!-- Curved ring labels (inside the ring) — anchored to world origin -->
+      <svg
+        v-for="(geom, layerIndex) in layerLabelGeometry"
+        :key="`label-${layerIndex}`"
+        class="orbit-label"
+        :class="{ 'is-hot': hoveredLayer === layerIndex }"
+        :width="geom.size"
+        :height="geom.size"
+        :viewBox="`0 0 ${geom.size} ${geom.size}`"
+        aria-hidden="true"
+      >
+        <path :id="`ring-arc-${layerIndex}`" :d="geom.path" fill="none" />
+        <text class="orbit-label-text">
+          <textPath
+            :href="`#ring-arc-${layerIndex}`"
+            startOffset="50%"
+            text-anchor="middle"
+          >{{ layerLabels[layerIndex] }}</textPath>
+        </text>
+      </svg>
 
       <!--
         One rotating wrapper per ring (CSS animation, compositor-only).
@@ -618,9 +795,7 @@ onUnmounted(() => {
       <component :is="activeWidget" />
     </WidgetWindow>
 
-    <!-- ---------------------------------------------------------------- -->
-    <!-- Onboarding overlay                                                -->
-    <!-- ---------------------------------------------------------------- -->
+    <!-- Onboarding overlay -->
     <Transition name="onboarding-fade">
       <div
         v-if="showOnboarding"
@@ -635,7 +810,6 @@ onUnmounted(() => {
           <Transition name="onboarding-step" mode="out-in">
             <div :key="onboardingStep" class="onboarding-content">
 
-              <!-- -------- Step 1: drag -------- -->
               <div v-if="stepContent.gesture === 'drag'" class="gesture gesture-drag">
                 <span class="gesture-track"></span>
                 <span class="finger finger-trail finger-trail-3"></span>
@@ -644,14 +818,12 @@ onUnmounted(() => {
                 <span class="finger"></span>
               </div>
 
-              <!-- -------- Step 2a: pinch -------- -->
               <div v-else-if="stepContent.gesture === 'pinch'" class="gesture gesture-pinch">
                 <span class="gesture-track"></span>
                 <span class="finger finger-pinch-a"></span>
                 <span class="finger finger-pinch-b"></span>
               </div>
 
-              <!-- -------- Step 2b: scroll -------- -->
               <div v-else class="gesture gesture-scroll">
                 <span class="scroll-mouse">
                   <span class="scroll-wheel"></span>
@@ -709,16 +881,6 @@ onUnmounted(() => {
 }
 
 /* ---------------- World-attached glows ---------------- */
-/*
- * Children of .canvas-world, so they inherit its transform and travel
- * with the world. Anchored to the world origin (the center node) — when
- * the camera pans, they pan with the scene rather than sitting flat on
- * the viewport.
- *
- * Centering is done via the independent `translate` property, leaving
- * `transform` free for the pulsing animation. They compose cleanly
- * without re-writing the centering in every keyframe.
- */
 .world-glow {
   position: absolute;
   z-index: -1;
@@ -774,6 +936,7 @@ onUnmounted(() => {
 }
 
 /* ---------------- Floating nav ---------------- */
+/* ---------------- Floating nav (grouped) ---------------- */
 .floating-nav {
   position: fixed;
   top: 18px;
@@ -789,7 +952,24 @@ onUnmounted(() => {
   z-index: 50;
 }
 
+/* Thin vertical rule between Home and the group triggers. */
+.nav-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+
+  background: #2a2a2a;
+}
+
+.nav-group {
+  position: relative;
+}
+
 .nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+
   height: 30px;
   padding: 0 11px;
   border: 0;
@@ -805,6 +985,123 @@ onUnmounted(() => {
 .nav-item:hover {
   background: #1c1c1c;
   color: #fff;
+}
+
+/* Trigger highlight when this group's widget is currently open. */
+.nav-group.is-active > .nav-item--trigger {
+  color: #d4b56a;
+}
+
+/* Trigger highlight while the panel is expanded. */
+.nav-group.is-open > .nav-item--trigger {
+  background: #1c1c1c;
+  color: #fff;
+}
+
+.nav-chevron {
+  display: inline-flex;
+  width: 10px;
+  height: 10px;
+
+  transition: transform 0.18s ease;
+}
+
+.nav-chevron svg {
+  width: 100%;
+  height: 100%;
+}
+
+.nav-group.is-open .nav-chevron {
+  transform: rotate(180deg);
+}
+
+/* ---------------- Dropdown panel ---------------- */
+.nav-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+
+  display: flex;
+  flex-direction: column;
+
+  min-width: 140px;
+  padding: 5px;
+
+  border: 1px solid #252525;
+  border-radius: 10px;
+  background: rgba(14, 14, 14, 0.98);
+
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+
+  z-index: 1;
+}
+
+.nav-panel-item {
+  display: block;
+  width: 100%;
+
+  padding: 7px 10px;
+
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+
+  color: #888;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+
+  cursor: pointer;
+
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.nav-panel-item:hover {
+  background: #1c1c1c;
+  color: #fff;
+}
+
+.nav-panel-item.is-active {
+  color: #d4b56a;
+}
+
+/* ---------------- Click-away backdrop ---------------- */
+.nav-backdrop {
+  position: fixed;
+  inset: 0;
+
+  /* Above the canvas, below the nav (z-index 50). */
+  z-index: 49;
+
+  /* Transparent — it exists only to catch clicks. */
+  background: transparent;
+}
+
+/* ---------------- Transitions ---------------- */
+.nav-panel-enter-active,
+.nav-panel-leave-active {
+  transition:
+    opacity 0.14s ease,
+    transform 0.14s ease;
+}
+
+.nav-panel-enter-from,
+.nav-panel-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.nav-backdrop-enter-active,
+.nav-backdrop-leave-active {
+  transition: opacity 0.14s ease;
+}
+
+.nav-backdrop-enter-from,
+.nav-backdrop-leave-to {
+  opacity: 0;
 }
 
 /* ---------------- World ---------------- */
@@ -827,6 +1124,68 @@ onUnmounted(() => {
   border: 1px solid rgba(184, 155, 94, 0.12);
   border-radius: 50%;
   pointer-events: none;
+
+  transition:
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+/*
+ * Hover glow. When the cursor is anywhere inside this ring's interior
+ * (see updateHoveredRing), the whole ring gets a soft inner+outer gold
+ * halo. Reads as the layer "waking up."
+ */
+.orbit-ring.is-hot {
+  border-color: rgba(184, 155, 94, 0.42);
+  box-shadow:
+    0 0 40px rgba(184, 155, 94, 0.10),
+    inset 0 0 40px rgba(184, 155, 94, 0.05);
+}
+
+/* ---------------- Ring labels ---------------- */
+/*
+ * SVG arcs of curved text sitting INSIDE each ring. Anchored to the
+ * world origin like everything else. Static while the ring spins
+ * beneath them, which is what makes the map read as a map.
+ */
+.orbit-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  user-select: none;
+
+  opacity: 0.55;
+
+  transition: opacity 0.35s ease;
+}
+
+.orbit-label.is-hot {
+  opacity: 1;
+}
+
+/*
+ * Monospace with a hint of character. Space Mono has the mechanical
+ * regularity of a typewriter but with subtle quirks that read as
+ * modern. Fallback chain lands on the system's mono which is often
+ * Courier — a real typewriter face — so the aesthetic holds up even
+ * without a web font loaded.
+ */
+.orbit-label-text {
+  fill: #b89b5e;
+
+  font-family: 'Space Mono', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+
+  transition: filter 0.35s ease;
+}
+
+/* Subtle golden halo when the ring is active. */
+.orbit-label.is-hot .orbit-label-text {
+  filter: drop-shadow(0 0 8px rgba(184, 155, 94, 0.7));
 }
 
 /* ---------------- Orbit rotation (CSS only) ---------------- */
@@ -1030,8 +1389,6 @@ onUnmounted(() => {
   touch-action: none;
 }
 
-/* Soft vignette so the edge of the screen feels dark, focused on the
- * gesture in the middle. */
 .onboarding::before {
   content: '';
   position: absolute;
@@ -1093,8 +1450,6 @@ onUnmounted(() => {
   line-height: 1.5;
 }
 
-/* -------- Footer: dots + hint -------- */
-
 .onboarding-footer {
   position: relative;
   z-index: 1;
@@ -1149,7 +1504,7 @@ onUnmounted(() => {
 }
 
 /* ================================================================== */
-/* Gesture stage — all geometric primitives, no assets                 */
+/* Gesture stage                                                       */
 /* ================================================================== */
 
 .gesture {
@@ -1163,7 +1518,6 @@ onUnmounted(() => {
   height: 180px;
 }
 
-/* Dashed track — subtle line that the finger travels along. */
 .gesture-track {
   position: absolute;
   left: 50%;
@@ -1186,14 +1540,6 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-/* -------- Finger primitive -------- */
-
-/*
- * Golden touch point: a filled circle with a soft inner highlight and
- * three concentric halos rendered via box-shadow. Reused for drag
- * (with trailing ghosts), pinch (two fingers), and could be reused
- * anywhere else a touch indicator is needed.
- */
 .finger {
   position: absolute;
   left: 50%;
@@ -1217,10 +1563,7 @@ onUnmounted(() => {
   will-change: transform, opacity;
 }
 
-/* -------- Drag demo -------- */
-
 .finger-trail {
-  /* Reduced and blurred to read as a motion streak. */
   opacity: 0.4;
   filter: blur(1.5px);
   animation-fill-mode: backwards;
@@ -1240,10 +1583,7 @@ onUnmounted(() => {
   96%, 100% { transform: translate(-70px, -40px); }
 }
 
-/* -------- Pinch demo -------- */
-
 .gesture-pinch .gesture-track {
-  /* Track sits between the two fingers */
   width: 160px;
   margin-left: -80px;
 }
@@ -1267,8 +1607,6 @@ onUnmounted(() => {
   42%, 58%  { transform: translate(12px, 7px); }
   85%, 100% { transform: translate(60px, 34px); }
 }
-
-/* -------- Scroll demo -------- */
 
 .gesture-scroll {
   flex-direction: column;
@@ -1332,8 +1670,6 @@ onUnmounted(() => {
 .chev-up   { transform: rotate(-135deg); }
 .chev-down { transform: rotate(45deg); }
 
-/* -------- Step transition -------- */
-
 .onboarding-fade-enter-active,
 .onboarding-fade-leave-active {
   transition: opacity 0.35s ease;
@@ -1378,7 +1714,6 @@ onUnmounted(() => {
     animation: none;
   }
 
-  /* Static poses so the gesture is still readable */
   .gesture-drag .finger       { transform: translate(0, 0); }
   .finger-trail               { opacity: 0; }
   .finger-pinch-a             { transform: translate(-40px, -23px); }
@@ -1388,6 +1723,8 @@ onUnmounted(() => {
   .orbit-node,
   .meep-node,
   .nav-item,
+  .orbit-ring,
+  .orbit-label,
   .onboarding-dot,
   .onboarding-fade-enter-active,
   .onboarding-fade-leave-active,
@@ -1402,14 +1739,46 @@ onUnmounted(() => {
   .floating-nav {
     max-width: calc(100vw - 24px);
     overflow-x: auto;
-    justify-content: flex-start;
+    justify-content: center;
     left: 12px;
     right: 12px;
     transform: none;
+
+    /* Prevent the overflow-x scrollbar from clashing with the border. */
+    scrollbar-width: none;
   }
 
-  .nav-item {
+  .floating-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-item,
+  .nav-group {
     flex-shrink: 0;
+  }
+
+  /* On mobile the panel breaks out of the nav's bounds and spans the
+   * full viewport width, anchored below the nav bar. This avoids the
+   * panel being clipped by the nav's overflow-x: auto and gives
+   * touch targets more room. */
+  .nav-panel {
+    position: fixed;
+    top: 66px; /* nav height (18 top + 40) + 8 gap */
+    left: 12px;
+    right: 12px;
+    transform: none;
+
+    min-width: 0;
+  }
+
+  .nav-panel-enter-from,
+  .nav-panel-leave-to {
+    transform: translateY(-4px);
+  }
+
+  .nav-panel-item {
+    padding: 11px 12px;
+    font-size: 12px;
   }
 
   .onboarding {
@@ -1422,6 +1791,11 @@ onUnmounted(() => {
 
   .onboarding-subtitle {
     font-size: 12px;
+  }
+
+  .orbit-label-text {
+    font-size: 20px;
+    letter-spacing: 0.15em;
   }
 }
 </style>
