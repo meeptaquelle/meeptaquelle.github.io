@@ -177,7 +177,7 @@ const camera = {
   zoom: DEFAULT_ZOOM,
 }
 
-const MIN_ZOOM = 0.5
+const MIN_ZOOM = 0.3
 const MAX_ZOOM = 2.5
 
 /* World-space half-extent of the navigable area. The outer node's edge
@@ -210,27 +210,37 @@ function stopFly() {
   }
 }
 
-function flyTo(targetX: number, targetY: number) {
+function flyTo(targetX: number, targetY: number, targetZoom?: number) {
   stopFly()
 
-  // Clamp the destination the same way the interactive camera is clamped,
-  // so navigate-to-node can't push the origin outside the world box.
-  const limit = WORLD_BOUND * camera.zoom
+  // If a target zoom was given, resolve it once and clamp against the
+  // final zoom (not the current one) so the boundary check matches where
+  // the camera will actually land.
+  const finalZoom = targetZoom !== undefined ? clampZoom(targetZoom) : camera.zoom
+  const limit = WORLD_BOUND * finalZoom
   const clampedX = Math.max(-limit, Math.min(limit, targetX))
   const clampedY = Math.max(-limit, Math.min(limit, targetY))
 
   const fromX = camera.x
   const fromY = camera.y
+  const fromZoom = camera.zoom
   const startTime = performance.now()
   const duration = 750
 
   function step(now: number) {
     const progress = Math.min((now - startTime) / duration, 1)
     // ease in/out quad
-    const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2
+    const eased = progress < 0.5
+      ? 2 * progress * progress
+      : 1 - Math.pow(-2 * progress + 2, 2) / 2
 
     camera.x = fromX + (clampedX - fromX) * eased
     camera.y = fromY + (clampedY - fromY) * eased
+
+    if (targetZoom !== undefined) {
+      camera.zoom = fromZoom + (finalZoom - fromZoom) * eased
+    }
+
     worldEl.value!.style.transform =
       `translate3d(${camera.x}px, ${camera.y}px, 0) scale(${camera.zoom})`
 
@@ -408,9 +418,28 @@ function currentNodePosition(layerIndex: number, nodeIndex: number) {
 /* Navigation                                                          */
 /* ------------------------------------------------------------------ */
 
+/* When the user is zoomed out past this, navigating snaps them in to
+ * ZOOM_IN_TARGET so the focused node is readable. Below the threshold
+ * the node card is too small to read its title comfortably. */
+const ZOOM_IN_THRESHOLD = 0.6
+const ZOOM_OUT_THRESHOLD = 1.3
+const ZOOM_TARGET = 1.25
+
 function navigateToWidget(id: string) {
+  // Snap into the comfort band from either side:
+  //   below 0.6  → zoom in to 1.25
+  //   above 1.3  → zoom back to 1.25
+  //   in between → leave alone
+  let targetZoom = camera.zoom
+
+  if (camera.zoom < ZOOM_IN_THRESHOLD) {
+    targetZoom = ZOOM_TARGET
+  } else if (camera.zoom > ZOOM_OUT_THRESHOLD) {
+    targetZoom = ZOOM_TARGET
+  }
+
   if (id === 'meep') {
-    flyTo(0, 0)
+    flyTo(0, 0, DEFAULT_ZOOM)
     return
   }
 
@@ -419,7 +448,8 @@ function navigateToWidget(id: string) {
     if (nodeIndex === -1) continue
 
     const { x, y } = currentNodePosition(layerIndex, nodeIndex)
-    flyTo(-x * camera.zoom, -y * camera.zoom)
+    flyTo(-x * targetZoom, -y * targetZoom, targetZoom)
+    return
   }
 }
 

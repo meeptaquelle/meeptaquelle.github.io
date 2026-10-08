@@ -79,17 +79,21 @@ function formatMessageDate(date: string): string {
     gifFailed.value = false
   })
 
-  async function loadMessages(): Promise<void> {
-    try {
-      const response = await api.get('/api/messages')
-      messages.value = response.data
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to fetch messages'
-    } finally {
-      loading.value = false
-    }
-  }
+async function loadMessages(): Promise<void> {
+  try {
+    const response = await api.get('/api/messages')
 
+    messages.value = response.data.sort(
+      (a: Message, b: Message) =>
+        new Date(b.created_at).getTime() -
+        new Date(a.created_at).getTime()
+    )
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Failed to fetch messages'
+  } finally {
+    loading.value = false
+  }
+}
   async function sendMessage(): Promise<void> {
     if (!canSend.value) return
 
